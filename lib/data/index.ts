@@ -1,4 +1,8 @@
-import { getSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import {
+  getSupabaseServerClient,
+  isSupabaseConfigured,
+  supabaseConfig,
+} from "@/lib/supabase/server";
 import {
   SEED_PROFILES,
   SEED_ORGANIZATIONS,
@@ -7,6 +11,7 @@ import {
   SEED_TEAMS,
   SEED_TEAM_MEMBERS,
   SEED_EVENTS,
+  SEED_NOTIFICATIONS,
 } from "./seed-data";
 import {
   Organization,
@@ -20,96 +25,269 @@ import {
 
 export type ConnectionStatus = "connected" | "prototype" | "error";
 
+export interface TableCheckResult {
+  table: string;
+  status: "ok" | "error" | "fallback";
+  count?: number;
+  error?: string;
+}
+
 export interface DatabaseStatus {
   status: ConnectionStatus;
   label: "Supabase Connected" | "Prototype Mode" | "Database Error";
   message: string;
   error?: string;
   isConfigured: boolean;
+  urlExists: boolean;
+  keyExists: boolean;
+  hostname: string | null;
+  isReachable: boolean;
+  tableResults: TableCheckResult[];
   counts?: {
     organizations: number;
     clubs: number;
     profiles: number;
     teams: number;
     events: number;
+    club_members?: number;
+    team_members?: number;
+    notifications?: number;
   };
 }
 
+const ALL_8_TABLES = [
+  "organizations",
+  "clubs",
+  "profiles",
+  "club_members",
+  "teams",
+  "team_members",
+  "events",
+  "notifications",
+] as const;
+
 export async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  const urlExists = supabaseConfig.urlExists;
+  const keyExists = supabaseConfig.keyExists;
+  const hostname = supabaseConfig.hostname;
+
+  // Case 1: Credentials not configured
   if (!isSupabaseConfigured) {
+    if (typeof window === "undefined") {
+      console.log(
+        "[CampusHub Supabase Diagnostic] URL exists:",
+        urlExists,
+        "| Public key exists:",
+        keyExists,
+        "| Hostname:",
+        hostname || "none"
+      );
+    }
+
     return {
       status: "prototype",
       label: "Prototype Mode",
-      message: "Running with local MIT-ADT demonstration dataset. Supabase credentials not yet configured.",
+      message:
+        "Running with local MIT-ADT demonstration dataset. Supabase credentials not yet configured.",
       isConfigured: false,
+      urlExists,
+      keyExists,
+      hostname,
+      isReachable: false,
+      tableResults: ALL_8_TABLES.map((table) => ({
+        table,
+        status: "fallback",
+      })),
       counts: {
         organizations: SEED_ORGANIZATIONS.length,
         clubs: SEED_CLUBS.length,
         profiles: SEED_PROFILES.length,
         teams: SEED_TEAMS.length,
         events: SEED_EVENTS.length,
+        club_members: SEED_CLUB_MEMBERS.length,
+        team_members: SEED_TEAM_MEMBERS.length,
+        notifications: SEED_NOTIFICATIONS.length,
       },
     };
   }
 
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return {
-      status: "prototype",
-      label: "Prototype Mode",
-      message: "Running with local dataset. Client helper returned null.",
-      isConfigured: false,
-    };
+  // Safe diagnostic log (never prints key)
+  if (typeof window === "undefined") {
+    console.log(
+      "[CampusHub Supabase Diagnostic] URL exists:",
+      urlExists,
+      "| Public key exists:",
+      keyExists,
+      "| Hostname:",
+      hostname
+    );
   }
 
+  // Case 2: Reachability check with fast timeout (4 seconds)
+  let isReachable = false;
   try {
-    const [
-      { count: orgsCount, error: orgsErr },
-      { count: clubsCount, error: clubsErr },
-      { count: profilesCount, error: profilesErr },
-      { count: teamsCount, error: teamsErr },
-      { count: eventsCount, error: eventsErr },
-    ] = await Promise.all([
-      supabase.from("organizations").select("*", { count: "exact", head: true }),
-      supabase.from("clubs").select("*", { count: "exact", head: true }),
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("teams").select("*", { count: "exact", head: true }),
-      supabase.from("events").select("*", { count: "exact", head: true }),
-    ]);
-
-    const anyError = orgsErr || clubsErr || profilesErr || teamsErr || eventsErr;
-    if (anyError) {
-      return {
-        status: "error",
-        label: "Database Error",
-        message: "Failed to query one or more tables in Supabase.",
-        error: anyError.message,
-        isConfigured: true,
-      };
+    const reachCheck = await fetch(`${supabaseConfig.url}/rest/v1/`, {
+      method: "HEAD",
+      headers: {
+        apikey: supabaseConfig.key!,
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+    // Any HTTP status code received (200, 401, 404, etc.) proves host is reached
+    isReachable = reachCheck.status > 0;
+  } catch (reachErr: any) {
+    const errMsg = reachErr?.message || String(reachErr);
+    if (typeof window === "undefined") {
+      console.warn(
+        "[CampusHub Supabase Diagnostic] Supabase URL is unreachable. Hostname:",
+        hostname,
+        "| Error:",
+        errMsg
+      );
     }
 
     return {
-      status: "connected",
-      label: "Supabase Connected",
-      message: "Successfully connected to remote Supabase PostgreSQL database.",
+      status: "error",
+      label: "Database Error",
+      message:
+        "Supabase URL is unreachable. Check .env.local, project status, and internet connection.",
+      error: errMsg,
       isConfigured: true,
+      urlExists,
+      keyExists,
+      hostname,
+      isReachable: false,
+      tableResults: ALL_8_TABLES.map((table) => ({
+        table,
+        status: "error",
+        error: "Host unreachable",
+      })),
       counts: {
-        organizations: orgsCount ?? 0,
-        clubs: clubsCount ?? 0,
-        profiles: profilesCount ?? 0,
-        teams: teamsCount ?? 0,
-        events: eventsCount ?? 0,
+        organizations: SEED_ORGANIZATIONS.length,
+        clubs: SEED_CLUBS.length,
+        profiles: SEED_PROFILES.length,
+        teams: SEED_TEAMS.length,
+        events: SEED_EVENTS.length,
+        club_members: SEED_CLUB_MEMBERS.length,
+        team_members: SEED_TEAM_MEMBERS.length,
+        notifications: SEED_NOTIFICATIONS.length,
       },
     };
-  } catch (err: any) {
+  }
+
+  // Case 3: URL is reachable — test each of the 8 tables individually
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
     return {
       status: "error",
       label: "Database Error",
-      message: "Network or configuration error connecting to Supabase.",
-      error: err?.message || String(err),
+      message: "Client initialization failed.",
       isConfigured: true,
+      urlExists,
+      keyExists,
+      hostname,
+      isReachable: true,
+      tableResults: ALL_8_TABLES.map((table) => ({
+        table,
+        status: "error",
+        error: "Client null",
+      })),
     };
   }
+
+  const tableResults: TableCheckResult[] = [];
+  const counts: Record<string, number> = {};
+  let firstError: { table: string; message: string; code?: string } | null = null;
+
+  for (const table of ALL_8_TABLES) {
+    try {
+      const { count, error } = await supabase
+        .from(table)
+        .select("*", { count: "exact", head: true });
+
+      if (error) {
+        tableResults.push({ table, status: "error", error: error.message });
+        if (!firstError) {
+          firstError = { table, message: error.message, code: error.code };
+        }
+      } else {
+        tableResults.push({ table, status: "ok", count: count ?? 0 });
+        counts[table] = count ?? 0;
+      }
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      tableResults.push({ table, status: "error", error: msg });
+      if (!firstError) {
+        firstError = { table, message: msg };
+      }
+    }
+  }
+
+  if (firstError) {
+    if (typeof window === "undefined") {
+      console.warn(
+        "[CampusHub Supabase Diagnostic] Table query failed:",
+        firstError.table,
+        "| Error:",
+        firstError.message
+      );
+    }
+
+    return {
+      status: "error",
+      label: "Database Error",
+      message: `Query failed on table '${firstError.table}': ${firstError.message}`,
+      error: `Table [${firstError.table}] query error: ${firstError.message}${
+        firstError.code ? ` (code: ${firstError.code})` : ""
+      }`,
+      isConfigured: true,
+      urlExists,
+      keyExists,
+      hostname,
+      isReachable: true,
+      tableResults,
+      counts: {
+        organizations: counts.organizations ?? SEED_ORGANIZATIONS.length,
+        clubs: counts.clubs ?? SEED_CLUBS.length,
+        profiles: counts.profiles ?? SEED_PROFILES.length,
+        teams: counts.teams ?? SEED_TEAMS.length,
+        events: counts.events ?? SEED_EVENTS.length,
+        club_members: counts.club_members ?? SEED_CLUB_MEMBERS.length,
+        team_members: counts.team_members ?? SEED_TEAM_MEMBERS.length,
+        notifications: counts.notifications ?? SEED_NOTIFICATIONS.length,
+      },
+    };
+  }
+
+  if (typeof window === "undefined") {
+    console.log(
+      "[CampusHub Supabase Diagnostic] All 8 tables verified successfully on Supabase:",
+      hostname
+    );
+  }
+
+  return {
+    status: "connected",
+    label: "Supabase Connected",
+    message:
+      "Successfully connected to remote Supabase PostgreSQL database. All 8 tables verified.",
+    isConfigured: true,
+    urlExists,
+    keyExists,
+    hostname,
+    isReachable: true,
+    tableResults,
+    counts: {
+      organizations: counts.organizations ?? 0,
+      clubs: counts.clubs ?? 0,
+      profiles: counts.profiles ?? 0,
+      teams: counts.teams ?? 0,
+      events: counts.events ?? 0,
+      club_members: counts.club_members ?? 0,
+      team_members: counts.team_members ?? 0,
+      notifications: counts.notifications ?? 0,
+    },
+  };
 }
 
 // Helper to resolve seed profiles by ID
