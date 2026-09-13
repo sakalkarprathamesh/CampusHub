@@ -20,18 +20,26 @@ import {
   getOrganizations,
   getClubs,
   getUpcomingEvents,
+  getDatabaseStatus,
 } from "@/lib/data";
 import { ClubCard } from "@/components/clubs/ClubCard";
 import { EventCard } from "@/components/events/EventCard";
 import { OrgCard } from "@/components/organizations/OrgCard";
 
 export default async function HomePage() {
-  const [stats, organizations, featuredClubs, upcomingEvents] = await Promise.all([
+  const [stats, organizations, featuredClubs, upcomingEvents, dbStatus] = await Promise.all([
     getStatistics(),
     getOrganizations(),
     getClubs({ limit: 4 }),
     getUpcomingEvents({ limit: 3 }),
+    getDatabaseStatus(),
   ]);
+
+  const dbStatusStyle = {
+    connected: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    prototype: "bg-blue-100/80 text-blue-800 border-blue-200/60",
+    error: "bg-rose-100 text-rose-800 border-rose-300",
+  }[dbStatus.status];
 
   return (
     <div className="space-y-16 pb-20">
@@ -42,9 +50,18 @@ export default async function HomePage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 text-blue-800 text-xs font-semibold border border-blue-200/60 shadow-sm">
-              <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-              <span>CampusHub Phase 1 • MIT-ADT College</span>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 text-blue-800 text-xs font-semibold border border-blue-200/60 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                <span>CampusHub Phase 1 • MIT-ADT College</span>
+              </div>
+              <Link
+                href="/supabase-test"
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm transition-all hover:scale-105 ${dbStatusStyle}`}
+              >
+                <span className="h-2 w-2 rounded-full bg-current" />
+                <span>{dbStatus.label}</span>
+              </Link>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">

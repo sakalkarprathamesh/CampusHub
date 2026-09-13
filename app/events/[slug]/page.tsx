@@ -73,7 +73,11 @@ export default async function EventDetailPage({ params }: EventPageProps) {
 
           <div className="max-w-4xl space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              {isPast ? (
+              {event.status === "cancelled" ? (
+                <Badge variant="destructive" size="sm" className="bg-rose-600 text-white border-transparent">
+                  Cancelled Event
+                </Badge>
+              ) : isPast ? (
                 <Badge variant="default" size="sm" className="bg-slate-800 text-slate-300 border-slate-700">
                   Completed Event
                 </Badge>

@@ -34,7 +34,11 @@ export function EventCard({ event, featured = false }: EventCardProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
           
           <div className="absolute top-3 left-3">
-            {isPast ? (
+            {event.status === "cancelled" ? (
+              <Badge variant="destructive" size="sm" className="bg-rose-600 text-white border-transparent backdrop-blur-md">
+                Cancelled
+              </Badge>
+            ) : isPast ? (
               <Badge variant="default" size="sm" className="bg-slate-900/80 text-white border-transparent backdrop-blur-md">
                 Completed Event
               </Badge>

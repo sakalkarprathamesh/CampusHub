@@ -18,6 +18,100 @@ import {
   Profile,
 } from "@/types/database";
 
+export type ConnectionStatus = "connected" | "prototype" | "error";
+
+export interface DatabaseStatus {
+  status: ConnectionStatus;
+  label: "Supabase Connected" | "Prototype Mode" | "Database Error";
+  message: string;
+  error?: string;
+  isConfigured: boolean;
+  counts?: {
+    organizations: number;
+    clubs: number;
+    profiles: number;
+    teams: number;
+    events: number;
+  };
+}
+
+export async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  if (!isSupabaseConfigured) {
+    return {
+      status: "prototype",
+      label: "Prototype Mode",
+      message: "Running with local MIT-ADT demonstration dataset. Supabase credentials not yet configured.",
+      isConfigured: false,
+      counts: {
+        organizations: SEED_ORGANIZATIONS.length,
+        clubs: SEED_CLUBS.length,
+        profiles: SEED_PROFILES.length,
+        teams: SEED_TEAMS.length,
+        events: SEED_EVENTS.length,
+      },
+    };
+  }
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    return {
+      status: "prototype",
+      label: "Prototype Mode",
+      message: "Running with local dataset. Client helper returned null.",
+      isConfigured: false,
+    };
+  }
+
+  try {
+    const [
+      { count: orgsCount, error: orgsErr },
+      { count: clubsCount, error: clubsErr },
+      { count: profilesCount, error: profilesErr },
+      { count: teamsCount, error: teamsErr },
+      { count: eventsCount, error: eventsErr },
+    ] = await Promise.all([
+      supabase.from("organizations").select("*", { count: "exact", head: true }),
+      supabase.from("clubs").select("*", { count: "exact", head: true }),
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("teams").select("*", { count: "exact", head: true }),
+      supabase.from("events").select("*", { count: "exact", head: true }),
+    ]);
+
+    const anyError = orgsErr || clubsErr || profilesErr || teamsErr || eventsErr;
+    if (anyError) {
+      return {
+        status: "error",
+        label: "Database Error",
+        message: "Failed to query one or more tables in Supabase.",
+        error: anyError.message,
+        isConfigured: true,
+      };
+    }
+
+    return {
+      status: "connected",
+      label: "Supabase Connected",
+      message: "Successfully connected to remote Supabase PostgreSQL database.",
+      isConfigured: true,
+      counts: {
+        organizations: orgsCount ?? 0,
+        clubs: clubsCount ?? 0,
+        profiles: profilesCount ?? 0,
+        teams: teamsCount ?? 0,
+        events: eventsCount ?? 0,
+      },
+    };
+  } catch (err: any) {
+    return {
+      status: "error",
+      label: "Database Error",
+      message: "Network or configuration error connecting to Supabase.",
+      error: err?.message || String(err),
+      isConfigured: true,
+    };
+  }
+}
+
 // Helper to resolve seed profiles by ID
 function findProfile(id: string): Profile | undefined {
   return SEED_PROFILES.find((p) => p.id === id);
@@ -519,6 +613,7 @@ export async function getPastEvents(options: EventFilterOptions = {}): Promise<E
           creator:profiles(*)
         `)
         .lt("event_date", now)
+        .neq("status", "draft")
         .order("event_date", { ascending: false });
 
       if (search && search.trim() !== "") {
@@ -546,7 +641,7 @@ export async function getPastEvents(options: EventFilterOptions = {}): Promise<E
   }
 
   const nowDate = new Date();
-  let results = SEED_EVENTS.filter((e) => new Date(e.event_date) < nowDate).map(hydrateSeedEvent);
+  let results = SEED_EVENTS.filter((e) => new Date(e.event_date) < nowDate && e.status !== "draft").map(hydrateSeedEvent);
 
   if (clubSlug && clubSlug !== "all") {
     results = results.filter((e) => e.club?.slug === clubSlug);

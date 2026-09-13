@@ -31,7 +31,7 @@ export default async function ClubsPage() {
               Student Clubs & Chapters
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Browse {clubs.length} registered organizations across technology, design, entrepreneurship, and arts.
+              Browse {clubs.length} registered student clubs across technology, design, entrepreneurship, and arts.
             </p>
           </div>
         </div>

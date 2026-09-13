@@ -175,7 +175,11 @@ export default async function OrganizationDetailPage({ params }: OrgPageProps) {
                 <ClubCard key={club.id} club={{ ...club, organization: org }} />
               ))
             ) : (
-              <p className="text-xs text-slate-500">No clubs affiliated with this community.</p>
+              <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-8 text-center">
+                <Layers className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-700">No clubs currently affiliated with this community</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">New student chapters will appear here once registered.</p>
+              </div>
             )}
           </div>
         </section>

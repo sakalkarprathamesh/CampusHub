@@ -1,11 +1,10 @@
 -- ====================================================================
 -- CampusHub Phase 1 Seed Data (MIT-ADT College Demo Records)
+-- File: supabase/seed.sql
+-- Idempotent script: Safe to run more than once (ON CONFLICT DO NOTHING)
 -- ====================================================================
 
--- 1. CLEAN EXISTING DEMO DATA (IF RE-SEEDING)
-TRUNCATE TABLE notifications, team_members, teams, club_members, events, clubs, organizations, profiles CASCADE;
-
--- 2. INSERT PROFILES (Students & Faculty Coordinators)
+-- 1. PROFILES (Faculty Coordinators & Student Leaders)
 INSERT INTO profiles (id, full_name, email, avatar_url, department, year_of_study, role) VALUES
 -- Faculty Coordinators
 ('a1111111-1111-1111-1111-111111111101', 'Dr. Anand Deshmukh', 'anand.deshmukh@mituniversity.edu.in', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80', 'School of Computing', 'Faculty', 'faculty_coordinator'),
@@ -29,73 +28,77 @@ INSERT INTO profiles (id, full_name, email, avatar_url, department, year_of_stud
 ('b1111111-1111-1111-1111-111111111114', 'Riya Saxena', 'riya.saxena@campus.mit.edu', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80', 'Visual Communication', 'Year 2', 'club_lead'),
 ('b1111111-1111-1111-1111-111111111115', 'Nikhil Deshpande', 'nikhil.deshpande@campus.mit.edu', 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=300&auto=format&fit=crop&q=80', 'Computer Science', 'Year 2', 'student'),
 ('b1111111-1111-1111-1111-111111111116', 'Shreya Banerjee', 'shreya.banerjee@campus.mit.edu', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80', 'Electronics & Telecom', 'Year 2', 'student'),
-('b1111111-1111-1111-1111-111111111117', 'Arjun Nambiar', 'arjun.nambiar@campus.mit.edu', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80', 'Animation & VFX', 'Year 2', 'student');
+('b1111111-1111-1111-1111-111111111117', 'Arjun Nambiar', 'arjun.nambiar@campus.mit.edu', 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80', 'Animation & VFX', 'Year 2', 'student')
+ON CONFLICT (id) DO NOTHING;
 
--- 3. INSERT ORGANIZATIONS (Top-Level Bodies)
+-- 2. ORGANIZATIONS (3 Communities)
 INSERT INTO organizations (id, name, slug, description, logo_url, parent_organization_id) VALUES
 ('c1111111-1111-1111-1111-111111111101', 'Student Council', 'student-council', 'The apex student governing body at MIT-ADT coordinating student welfare, leadership initiatives, and campus-wide governance.', 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=300&auto=format&fit=crop&q=80', NULL),
 ('c1111111-1111-1111-1111-111111111102', 'Technical and Innovation Community', 'technical-and-innovation-community', 'The umbrella organization fostering technological excellence, coding culture, robotics, and startup ventures across all engineering faculties.', 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&auto=format&fit=crop&q=80', NULL),
-('c1111111-1111-1111-1111-111111111103', 'Cultural and Creative Community', 'cultural-and-creative-community', 'The vibrant creative collective powering cultural fests, visual arts, theatrical performances, and campus storytelling.', 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=300&auto=format&fit=crop&q=80', NULL);
+('c1111111-1111-1111-1111-111111111103', 'Cultural and Creative Community', 'cultural-and-creative-community', 'The vibrant creative collective powering cultural fests, visual arts, theatrical performances, and campus storytelling.', 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=300&auto=format&fit=crop&q=80', NULL)
+ON CONFLICT (id) DO NOTHING;
 
--- 4. INSERT CLUBS
+-- 3. CLUBS (7 Chapters)
 INSERT INTO clubs (id, organization_id, name, slug, description, category, logo_url, banner_url, faculty_coordinator_id, contact_email, contact_phone, is_active) VALUES
--- Impact MIT ADT (Student Council)
+-- Impact MIT ADT
 ('d1111111-1111-1111-1111-111111111101', 'c1111111-1111-1111-1111-111111111101', 'Impact MIT ADT', 'impact-mit-adt', 'A student-driven leadership and social development initiative driving high-impact community projects, campus engagement, and student representation.', 'Leadership & Social Impact', 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111101', 'impact@mitadt.edu.in', '+91 98230 11001', true),
 
--- Criya (Student Council)
+-- Criya
 ('d1111111-1111-1111-1111-111111111102', 'c1111111-1111-1111-1111-111111111101', 'Criya', 'criya', 'The design and creative innovation collective dedicated to UI/UX, product thinking, graphic storytelling, and collaborative art.', 'Design & Innovation', 'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111102', 'criya.design@mitadt.edu.in', '+91 98230 11002', true),
 
--- Coding Club (Technical)
+-- Coding Club
 ('d1111111-1111-1111-1111-111111111103', 'c1111111-1111-1111-1111-111111111102', 'Coding Club', 'coding-club', 'The premier computer science community uniting competitive programmers, open source contributors, web architects, and AI enthusiasts.', 'Technical & Coding', 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111101', 'codingclub@mitadt.edu.in', '+91 98230 11003', true),
 
--- Robotics Club (Technical)
+-- Robotics Club
 ('d1111111-1111-1111-1111-111111111104', 'c1111111-1111-1111-1111-111111111102', 'Robotics Club', 'robotics-club', 'Pioneering hardware engineering, autonomous aerial drones, rover systems, and embedded IoT solutions with hands-on build sessions.', 'Engineering & Robotics', 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111103', 'robotics@mitadt.edu.in', '+91 98230 11004', true),
 
--- Entrepreneurship Cell (Technical & Innovation)
+-- Entrepreneurship Cell
 ('d1111111-1111-1111-1111-111111111105', 'c1111111-1111-1111-1111-111111111102', 'Entrepreneurship Cell', 'entrepreneurship-cell', 'Empowering aspiring campus founders through mentorship pipelines, angel pitch competitions, product incubation, and investor connects.', 'Entrepreneurship & Business', 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111103', 'ecell@mitadt.edu.in', '+91 98230 11005', true),
 
--- Cultural Club (Cultural & Creative)
+-- Cultural Club
 ('d1111111-1111-1111-1111-111111111106', 'c1111111-1111-1111-1111-111111111103', 'Cultural Club', 'cultural-club', 'The cultural heartbeat of MIT-ADT organizing annual festivals, dramatic productions, musical showcases, and inter-collegiate performances.', 'Arts & Culture', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111102', 'cultural@mitadt.edu.in', '+91 98230 11006', true),
 
--- Photography Club (Cultural & Creative)
-('d1111111-1111-1111-1111-111111111107', 'c1111111-1111-1111-1111-111111111103', 'Photography Club', 'photography-club', 'Capturing campus life, architecture, wildlife, and cinematic portraits while hosting photo walks, gallery exhibits, and gear workshops.', 'Media & Photography', 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111102', 'photo@mitadt.edu.in', '+91 98230 11007', true);
+-- Photography Club
+('d1111111-1111-1111-1111-111111111107', 'c1111111-1111-1111-1111-111111111103', 'Photography Club', 'photography-club', 'Capturing campus life, architecture, wildlife, and cinematic portraits while hosting photo walks, gallery exhibits, and gear workshops.', 'Media & Photography', 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1200&auto=format&fit=crop&q=80', 'a1111111-1111-1111-1111-111111111102', 'photo@mitadt.edu.in', '+91 98230 11007', true)
+ON CONFLICT (id) DO NOTHING;
 
--- 5. INSERT CLUB MEMBERS (Presidents, VPs, Core Members)
-INSERT INTO club_members (club_id, profile_id, role, status, joined_at) VALUES
+-- 4. CLUB MEMBERS (Leadership Roles)
+INSERT INTO club_members (id, club_id, profile_id, role, status, joined_at) VALUES
 -- Impact MIT ADT
-('d1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111101', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111102', 'vice_president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111115', 'core_member', 'active', '2024-08-15'),
+('cm111111-1111-1111-1111-111111111101', 'd1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111101', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111102', 'd1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111102', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111103', 'd1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111115', 'core_member', 'active', '2024-08-15'),
 
 -- Criya
-('d1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111103', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111104', 'vice_president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111117', 'member', 'active', '2024-09-01'),
+('cm111111-1111-1111-1111-111111111104', 'd1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111103', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111105', 'd1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111104', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111106', 'd1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111117', 'member', 'active', '2024-09-01'),
 
 -- Coding Club
-('d1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111105', 'president', 'active', '2024-06-15'),
-('d1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111106', 'vice_president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111115', 'core_member', 'active', '2024-08-01'),
+('cm111111-1111-1111-1111-111111111107', 'd1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111105', 'president', 'active', '2024-06-15'),
+('cm111111-1111-1111-1111-111111111108', 'd1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111106', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111109', 'd1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111115', 'core_member', 'active', '2024-08-01'),
 
 -- Robotics Club
-('d1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111107', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111108', 'vice_president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111116', 'core_member', 'active', '2024-08-20'),
+('cm111111-1111-1111-1111-111111111110', 'd1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111107', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111111', 'd1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111108', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111112', 'd1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111116', 'core_member', 'active', '2024-08-20'),
 
 -- E-Cell
-('d1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111109', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111110', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111113', 'd1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111109', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111114', 'd1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111110', 'vice_president', 'active', '2024-07-01'),
 
 -- Cultural Club
-('d1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111111', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111112', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111115', 'd1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111111', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111116', 'd1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111112', 'vice_president', 'active', '2024-07-01'),
 
 -- Photography Club
-('d1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111113', 'president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111114', 'vice_president', 'active', '2024-07-01'),
-('d1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111117', 'core_member', 'active', '2024-08-10');
+('cm111111-1111-1111-1111-111111111117', 'd1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111113', 'president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111118', 'd1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111114', 'vice_president', 'active', '2024-07-01'),
+('cm111111-1111-1111-1111-111111111119', 'd1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111117', 'core_member', 'active', '2024-08-10')
+ON CONFLICT (id) DO NOTHING;
 
--- 6. INSERT TEAMS FOR CLUBS
+-- 5. TEAMS (15 Specialized Wings)
 INSERT INTO teams (id, club_id, name, slug, description) VALUES
 -- Impact MIT ADT Teams
 ('e1111111-1111-1111-1111-111111111101', 'd1111111-1111-1111-1111-111111111101', 'Community Outreach & PR', 'outreach-pr', 'Managing outreach with student batches, institutional bodies, and digital campaigns.'),
@@ -124,48 +127,50 @@ INSERT INTO teams (id, club_id, name, slug, description) VALUES
 
 -- Photography Club Teams
 ('e1111111-1111-1111-1111-111111111114', 'd1111111-1111-1111-1111-111111111107', 'Campus Photojournalism', 'photojournalism', 'Documentary photography capturing campus events, student sports, and varsity moments.'),
-('e1111111-1111-1111-1111-111111111115', 'd1111111-1111-1111-1111-111111111107', 'Cinematography & Post-Processing', 'cinematography-editing', 'Short film production, color grading in Lightroom/DaVinci, and drone aerial framing.');
+('e1111111-1111-1111-1111-111111111115', 'd1111111-1111-1111-1111-111111111107', 'Cinematography & Post-Processing', 'cinematography-editing', 'Short film production, color grading in Lightroom/DaVinci, and drone aerial framing.')
+ON CONFLICT (id) DO NOTHING;
 
--- 7. INSERT TEAM MEMBERS & LEADS
-INSERT INTO team_members (team_id, profile_id, is_lead, joined_at) VALUES
+-- 6. TEAM MEMBERS & LEADS
+INSERT INTO team_members (id, team_id, profile_id, is_lead, joined_at) VALUES
 -- Impact PR
-('e1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111102', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111101', 'e1111111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111102', true, '2024-07-01'),
 -- Impact Operations
-('e1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111115', true, '2024-08-15'),
+('tm111111-1111-1111-1111-111111111102', 'e1111111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111115', true, '2024-08-15'),
 
 -- Criya UI/UX
-('e1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111104', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111103', 'e1111111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111104', true, '2024-07-01'),
 -- Criya Brand
-('e1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111117', true, '2024-09-01'),
+('tm111111-1111-1111-1111-111111111104', 'e1111111-1111-1111-1111-111111111104', 'b1111111-1111-1111-1111-111111111117', true, '2024-09-01'),
 
 -- Coding CP
-('e1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111106', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111105', 'e1111111-1111-1111-1111-111111111105', 'b1111111-1111-1111-1111-111111111106', true, '2024-07-01'),
 -- Coding Web
-('e1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111115', true, '2024-08-01'),
+('tm111111-1111-1111-1111-111111111106', 'e1111111-1111-1111-1111-111111111106', 'b1111111-1111-1111-1111-111111111115', true, '2024-08-01'),
 -- Coding AI
-('e1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111105', true, '2024-06-15'),
+('tm111111-1111-1111-1111-111111111107', 'e1111111-1111-1111-1111-111111111107', 'b1111111-1111-1111-1111-111111111105', true, '2024-06-15'),
 
 -- Robotics Hardware
-('e1111111-1111-1111-1111-111111111108', 'b1111111-1111-1111-1111-111111111108', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111108', 'e1111111-1111-1111-1111-111111111108', 'b1111111-1111-1111-1111-111111111108', true, '2024-07-01'),
 -- Robotics Drones
-('e1111111-1111-1111-1111-111111111109', 'b1111111-1111-1111-1111-111111111116', true, '2024-08-20'),
+('tm111111-1111-1111-1111-111111111109', 'e1111111-1111-1111-1111-111111111109', 'b1111111-1111-1111-1111-111111111116', true, '2024-08-20'),
 
 -- E-Cell Incubation
-('e1111111-1111-1111-1111-111111111110', 'b1111111-1111-1111-1111-111111111110', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111110', 'e1111111-1111-1111-1111-111111111110', 'b1111111-1111-1111-1111-111111111110', true, '2024-07-01'),
 -- E-Cell Corporate
-('e1111111-1111-1111-1111-111111111111', 'b1111111-1111-1111-1111-111111111109', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111111', 'e1111111-1111-1111-1111-111111111111', 'b1111111-1111-1111-1111-111111111109', true, '2024-07-01'),
 
 -- Cultural Theater
-('e1111111-1111-1111-1111-111111111112', 'b1111111-1111-1111-1111-111111111112', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111112', 'e1111111-1111-1111-1111-111111111112', 'b1111111-1111-1111-1111-111111111112', true, '2024-07-01'),
 -- Cultural Music
-('e1111111-1111-1111-1111-111111111113', 'b1111111-1111-1111-1111-111111111111', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111113', 'e1111111-1111-1111-1111-111111111113', 'b1111111-1111-1111-1111-111111111111', true, '2024-07-01'),
 
 -- Photography Photojournalism
-('e1111111-1111-1111-1111-111111111114', 'b1111111-1111-1111-1111-111111111114', true, '2024-07-01'),
+('tm111111-1111-1111-1111-111111111114', 'e1111111-1111-1111-1111-111111111114', 'b1111111-1111-1111-1111-111111111114', true, '2024-07-01'),
 -- Photography Cinema
-('e1111111-1111-1111-1111-111111111115', 'b1111111-1111-1111-1111-111111111117', true, '2024-08-10');
+('tm111111-1111-1111-1111-111111111115', 'e1111111-1111-1111-1111-111111111115', 'b1111111-1111-1111-1111-111111111117', true, '2024-08-10')
+ON CONFLICT (id) DO NOTHING;
 
--- 8. INSERT EVENTS (Past and Upcoming)
+-- 7. EVENTS (Published Upcoming & Past Events with future dates)
 INSERT INTO events (id, club_id, title, slug, description, event_date, end_date, venue, capacity, banner_url, status, created_by) VALUES
 -- Upcoming Event 1: HackMITADT 2026 (Coding Club)
 ('f1111111-1111-1111-1111-111111111101', 'd1111111-1111-1111-1111-111111111103', 'HackMITADT 2026: 36-Hour National Hackathon', 'hackmitadt-2026', 'Join 500+ builders, innovators, and designers for a 36-hour sprint tackling AI, Web3, FinTech, and GreenTech tracks with cash prizes worth Rs. 2,00,000.', NOW() + INTERVAL '12 days', NOW() + INTERVAL '14 days', 'Central Auditorium & Tech Labs, MIT-ADT Pune', 500, 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&auto=format&fit=crop&q=80', 'published', 'b1111111-1111-1111-1111-111111111105'),
@@ -195,10 +200,12 @@ INSERT INTO events (id, club_id, title, slug, description, event_date, end_date,
 ('f1111111-1111-1111-1111-111111111109', 'd1111111-1111-1111-1111-111111111102', 'Canvas & Coffee: Expressive Typography & Poster Art', 'canvas-coffee-poster-art', 'An open creative mixer exploring vintage poster aesthetics, typography composition, and screen-printing techniques over artisan coffee.', NOW() - INTERVAL '30 days', NOW() - INTERVAL '30 days 4 hours', 'Design Open Studio Atrium', 75, 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1200&auto=format&fit=crop&q=80', 'completed', 'b1111111-1111-1111-1111-111111111103'),
 
 -- Past Event 10: Bot Builders Expo: Semester 1 (Robotics Club)
-('f1111111-1111-1111-1111-111111111110', 'd1111111-1111-1111-1111-111111111104', 'Bot Builders Expo: Semester 1 Project Showcase', 'bot-builders-expo-sem1', 'Exhibition of first-year engineering line follower bots, robotic arms, and IoT weather monitoring stations built during the winter term.', NOW() - INTERVAL '60 days', NOW() - INTERVAL '60 days 6 hours', 'Central Tech Foyer', 180, 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=1200&auto=format&fit=crop&q=80', 'completed', 'b1111111-1111-1111-1111-111111111107');
+('f1111111-1111-1111-1111-111111111110', 'd1111111-1111-1111-1111-111111111104', 'Bot Builders Expo: Semester 1 Project Showcase', 'bot-builders-expo-sem1', 'Exhibition of first-year engineering line follower bots, robotic arms, and IoT weather monitoring stations built during the winter term.', NOW() - INTERVAL '60 days', NOW() - INTERVAL '60 days 6 hours', 'Central Tech Foyer', 180, 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=1200&auto=format&fit=crop&q=80', 'completed', 'b1111111-1111-1111-1111-111111111107')
+ON CONFLICT (id) DO NOTHING;
 
--- 9. INSERT SAMPLE NOTIFICATIONS
-INSERT INTO notifications (profile_id, title, message, type, is_read) VALUES
-('b1111111-1111-1111-1111-111111111101', 'Welcome to CampusHub Phase 1', 'Your leadership profile for Impact MIT ADT is now active on CampusHub directory.', 'system', false),
-('b1111111-1111-1111-1111-111111111105', 'HackMITADT 2026 Published', 'Your event listing HackMITADT 2026 has been published to the college events directory.', 'event', false),
-('b1111111-1111-1111-1111-111111111107', 'RoboWars Venue Confirmed', 'The Innovation Amphitheater has been earmarked for the RoboWars arena.', 'event', true);
+-- 8. SAMPLE NOTIFICATIONS
+INSERT INTO notifications (id, profile_id, title, message, type, is_read) VALUES
+('notif111-1111-1111-1111-111111111101', 'b1111111-1111-1111-1111-111111111101', 'Welcome to CampusHub Phase 1', 'Your leadership profile for Impact MIT ADT is now active on CampusHub directory.', 'system', false),
+('notif111-1111-1111-1111-111111111102', 'b1111111-1111-1111-1111-111111111105', 'HackMITADT 2026 Published', 'Your event listing HackMITADT 2026 has been published to the college events directory.', 'event', false),
+('notif111-1111-1111-1111-111111111103', 'b1111111-1111-1111-1111-111111111107', 'RoboWars Venue Confirmed', 'The Innovation Amphitheater has been earmarked for the RoboWars arena.', 'event', true)
+ON CONFLICT (id) DO NOTHING;
