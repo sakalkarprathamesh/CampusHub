@@ -38,7 +38,9 @@ interface ClubPageProps {
 export async function generateMetadata({ params }: ClubPageProps) {
   const { slug } = await params;
   const club = await getClubBySlug(slug);
-  if (!club) return { title: "Club Not Found — CampusHub" };
+  if (!club) {
+    notFound();
+  }
   return {
     title: `${club.name} — CampusHub`,
     description: club.description,

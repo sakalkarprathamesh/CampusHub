@@ -15,8 +15,8 @@ import {
   Sparkles,
   ChevronRight,
 } from "lucide-react";
-import { Button } from "@/lib/../components/ui/Button";
-import { Modal } from "@/lib/../components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {

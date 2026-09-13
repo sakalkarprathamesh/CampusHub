@@ -27,7 +27,9 @@ interface OrgPageProps {
 export async function generateMetadata({ params }: OrgPageProps) {
   const { slug } = await params;
   const org = await getOrganizationBySlug(slug);
-  if (!org) return { title: "Organization Not Found — CampusHub" };
+  if (!org) {
+    notFound();
+  }
   return {
     title: `${org.name} — CampusHub`,
     description: org.description,

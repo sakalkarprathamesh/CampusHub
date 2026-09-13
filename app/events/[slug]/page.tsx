@@ -27,7 +27,9 @@ interface EventPageProps {
 export async function generateMetadata({ params }: EventPageProps) {
   const { slug } = await params;
   const event = await getEventBySlug(slug);
-  if (!event) return { title: "Event Not Found — CampusHub" };
+  if (!event) {
+    notFound();
+  }
   return {
     title: `${event.title} — CampusHub`,
     description: event.description,
