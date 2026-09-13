@@ -392,7 +392,7 @@ export const SEED_CLUBS: Club[] = [
 export const SEED_CLUB_MEMBERS: ClubMember[] = [
   // Impact MIT ADT
   {
-    id: "cm-01",
+    id: "01111111-1111-1111-1111-111111111101",
     club_id: "d1111111-1111-1111-1111-111111111101",
     profile_id: "b1111111-1111-1111-1111-111111111101",
     role: "president",
@@ -400,7 +400,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-02",
+    id: "01111111-1111-1111-1111-111111111102",
     club_id: "d1111111-1111-1111-1111-111111111101",
     profile_id: "b1111111-1111-1111-1111-111111111102",
     role: "vice_president",
@@ -408,7 +408,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-03",
+    id: "01111111-1111-1111-1111-111111111103",
     club_id: "d1111111-1111-1111-1111-111111111101",
     profile_id: "b1111111-1111-1111-1111-111111111115",
     role: "core_member",
@@ -418,7 +418,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // Criya
   {
-    id: "cm-04",
+    id: "01111111-1111-1111-1111-111111111104",
     club_id: "d1111111-1111-1111-1111-111111111102",
     profile_id: "b1111111-1111-1111-1111-111111111103",
     role: "president",
@@ -426,7 +426,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-05",
+    id: "01111111-1111-1111-1111-111111111105",
     club_id: "d1111111-1111-1111-1111-111111111102",
     profile_id: "b1111111-1111-1111-1111-111111111104",
     role: "vice_president",
@@ -434,7 +434,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-06",
+    id: "01111111-1111-1111-1111-111111111106",
     club_id: "d1111111-1111-1111-1111-111111111102",
     profile_id: "b1111111-1111-1111-1111-111111111117",
     role: "member",
@@ -444,7 +444,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // Coding Club
   {
-    id: "cm-07",
+    id: "01111111-1111-1111-1111-111111111107",
     club_id: "d1111111-1111-1111-1111-111111111103",
     profile_id: "b1111111-1111-1111-1111-111111111105",
     role: "president",
@@ -452,7 +452,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-06-15T00:00:00Z",
   },
   {
-    id: "cm-08",
+    id: "01111111-1111-1111-1111-111111111108",
     club_id: "d1111111-1111-1111-1111-111111111103",
     profile_id: "b1111111-1111-1111-1111-111111111106",
     role: "vice_president",
@@ -460,7 +460,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-09",
+    id: "01111111-1111-1111-1111-111111111109",
     club_id: "d1111111-1111-1111-1111-111111111103",
     profile_id: "b1111111-1111-1111-1111-111111111115",
     role: "core_member",
@@ -470,7 +470,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // Robotics Club
   {
-    id: "cm-10",
+    id: "01111111-1111-1111-1111-111111111110",
     club_id: "d1111111-1111-1111-1111-111111111104",
     profile_id: "b1111111-1111-1111-1111-111111111107",
     role: "president",
@@ -478,7 +478,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-11",
+    id: "01111111-1111-1111-1111-111111111111",
     club_id: "d1111111-1111-1111-1111-111111111104",
     profile_id: "b1111111-1111-1111-1111-111111111108",
     role: "vice_president",
@@ -486,7 +486,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-12",
+    id: "01111111-1111-1111-1111-111111111112",
     club_id: "d1111111-1111-1111-1111-111111111104",
     profile_id: "b1111111-1111-1111-1111-111111111116",
     role: "core_member",
@@ -496,7 +496,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // E-Cell
   {
-    id: "cm-13",
+    id: "01111111-1111-1111-1111-111111111113",
     club_id: "d1111111-1111-1111-1111-111111111105",
     profile_id: "b1111111-1111-1111-1111-111111111109",
     role: "president",
@@ -504,7 +504,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-14",
+    id: "01111111-1111-1111-1111-111111111114",
     club_id: "d1111111-1111-1111-1111-111111111105",
     profile_id: "b1111111-1111-1111-1111-111111111110",
     role: "vice_president",
@@ -514,7 +514,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // Cultural Club
   {
-    id: "cm-15",
+    id: "01111111-1111-1111-1111-111111111115",
     club_id: "d1111111-1111-1111-1111-111111111106",
     profile_id: "b1111111-1111-1111-1111-111111111111",
     role: "president",
@@ -522,7 +522,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-16",
+    id: "01111111-1111-1111-1111-111111111116",
     club_id: "d1111111-1111-1111-1111-111111111106",
     profile_id: "b1111111-1111-1111-1111-111111111112",
     role: "vice_president",
@@ -532,7 +532,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
 
   // Photography Club
   {
-    id: "cm-17",
+    id: "01111111-1111-1111-1111-111111111117",
     club_id: "d1111111-1111-1111-1111-111111111107",
     profile_id: "b1111111-1111-1111-1111-111111111113",
     role: "president",
@@ -540,7 +540,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-18",
+    id: "01111111-1111-1111-1111-111111111118",
     club_id: "d1111111-1111-1111-1111-111111111107",
     profile_id: "b1111111-1111-1111-1111-111111111114",
     role: "vice_president",
@@ -548,7 +548,7 @@ export const SEED_CLUB_MEMBERS: ClubMember[] = [
     joined_at: "2024-07-01T00:00:00Z",
   },
   {
-    id: "cm-19",
+    id: "01111111-1111-1111-1111-111111111119",
     club_id: "d1111111-1111-1111-1111-111111111107",
     profile_id: "b1111111-1111-1111-1111-111111111117",
     role: "core_member",
@@ -690,7 +690,7 @@ export const SEED_TEAMS: Team[] = [
 export const SEED_TEAM_MEMBERS: TeamMember[] = [
   // Impact PR
   {
-    id: "tm-01",
+    id: "02111111-1111-1111-1111-111111111101",
     team_id: "e1111111-1111-1111-1111-111111111101",
     profile_id: "b1111111-1111-1111-1111-111111111102",
     is_lead: true,
@@ -698,7 +698,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Impact Operations
   {
-    id: "tm-02",
+    id: "02111111-1111-1111-1111-111111111102",
     team_id: "e1111111-1111-1111-1111-111111111102",
     profile_id: "b1111111-1111-1111-1111-111111111115",
     is_lead: true,
@@ -706,7 +706,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Criya UI/UX
   {
-    id: "tm-03",
+    id: "02111111-1111-1111-1111-111111111103",
     team_id: "e1111111-1111-1111-1111-111111111103",
     profile_id: "b1111111-1111-1111-1111-111111111104",
     is_lead: true,
@@ -714,7 +714,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Criya Brand
   {
-    id: "tm-04",
+    id: "02111111-1111-1111-1111-111111111104",
     team_id: "e1111111-1111-1111-1111-111111111104",
     profile_id: "b1111111-1111-1111-1111-111111111117",
     is_lead: true,
@@ -722,7 +722,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Coding CP
   {
-    id: "tm-05",
+    id: "02111111-1111-1111-1111-111111111105",
     team_id: "e1111111-1111-1111-1111-111111111105",
     profile_id: "b1111111-1111-1111-1111-111111111106",
     is_lead: true,
@@ -730,7 +730,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Coding Web
   {
-    id: "tm-06",
+    id: "02111111-1111-1111-1111-111111111106",
     team_id: "e1111111-1111-1111-1111-111111111106",
     profile_id: "b1111111-1111-1111-1111-111111111115",
     is_lead: true,
@@ -738,7 +738,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Coding AI
   {
-    id: "tm-07",
+    id: "02111111-1111-1111-1111-111111111107",
     team_id: "e1111111-1111-1111-1111-111111111107",
     profile_id: "b1111111-1111-1111-1111-111111111105",
     is_lead: true,
@@ -746,7 +746,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Robotics Hardware
   {
-    id: "tm-08",
+    id: "02111111-1111-1111-1111-111111111108",
     team_id: "e1111111-1111-1111-1111-111111111108",
     profile_id: "b1111111-1111-1111-1111-111111111108",
     is_lead: true,
@@ -754,7 +754,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Robotics Drones
   {
-    id: "tm-09",
+    id: "02111111-1111-1111-1111-111111111109",
     team_id: "e1111111-1111-1111-1111-111111111109",
     profile_id: "b1111111-1111-1111-1111-111111111116",
     is_lead: true,
@@ -762,7 +762,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // E-Cell Incubation
   {
-    id: "tm-10",
+    id: "02111111-1111-1111-1111-111111111110",
     team_id: "e1111111-1111-1111-1111-111111111110",
     profile_id: "b1111111-1111-1111-1111-111111111110",
     is_lead: true,
@@ -770,7 +770,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // E-Cell Corporate
   {
-    id: "tm-11",
+    id: "02111111-1111-1111-1111-111111111111",
     team_id: "e1111111-1111-1111-1111-111111111111",
     profile_id: "b1111111-1111-1111-1111-111111111109",
     is_lead: true,
@@ -778,7 +778,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Cultural Theater
   {
-    id: "tm-12",
+    id: "02111111-1111-1111-1111-111111111112",
     team_id: "e1111111-1111-1111-1111-111111111112",
     profile_id: "b1111111-1111-1111-1111-111111111112",
     is_lead: true,
@@ -786,7 +786,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Cultural Music
   {
-    id: "tm-13",
+    id: "02111111-1111-1111-1111-111111111113",
     team_id: "e1111111-1111-1111-1111-111111111113",
     profile_id: "b1111111-1111-1111-1111-111111111111",
     is_lead: true,
@@ -794,7 +794,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Photography Photojournalism
   {
-    id: "tm-14",
+    id: "02111111-1111-1111-1111-111111111114",
     team_id: "e1111111-1111-1111-1111-111111111114",
     profile_id: "b1111111-1111-1111-1111-111111111114",
     is_lead: true,
@@ -802,7 +802,7 @@ export const SEED_TEAM_MEMBERS: TeamMember[] = [
   },
   // Photography Cinema
   {
-    id: "tm-15",
+    id: "02111111-1111-1111-1111-111111111115",
     team_id: "e1111111-1111-1111-1111-111111111115",
     profile_id: "b1111111-1111-1111-1111-111111111117",
     is_lead: true,
@@ -997,7 +997,7 @@ export const SEED_EVENTS: Event[] = [
 
 export const SEED_NOTIFICATIONS: Notification[] = [
   {
-    id: "notif-1",
+    id: "03111111-1111-1111-1111-111111111101",
     profile_id: "b1111111-1111-1111-1111-111111111101",
     title: "Welcome to CampusHub Phase 1",
     message: "Your leadership profile for Impact MIT ADT is now active on CampusHub directory.",
@@ -1006,7 +1006,7 @@ export const SEED_NOTIFICATIONS: Notification[] = [
     created_at: "2024-01-01T00:00:00Z",
   },
   {
-    id: "notif-2",
+    id: "03111111-1111-1111-1111-111111111102",
     profile_id: "b1111111-1111-1111-1111-111111111105",
     title: "HackMITADT 2026 Published",
     message: "Your event listing HackMITADT 2026 has been published to the college events directory.",
@@ -1015,7 +1015,7 @@ export const SEED_NOTIFICATIONS: Notification[] = [
     created_at: "2024-01-01T00:00:00Z",
   },
   {
-    id: "notif-3",
+    id: "03111111-1111-1111-1111-111111111103",
     profile_id: "b1111111-1111-1111-1111-111111111107",
     title: "RoboWars Venue Confirmed",
     message: "The Innovation Amphitheater has been earmarked for the RoboWars arena.",
