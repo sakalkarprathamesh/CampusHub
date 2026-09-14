@@ -1,6 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { isRolePreviewEnabled } from "@/lib/preview/config";
-import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import RolePreviewCenter from "@/components/preview/RolePreviewCenter";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +13,6 @@ export default async function RolePreviewPage() {
   // 1. Temporary Feature Flag Check
   if (!isRolePreviewEnabled()) {
     notFound();
-  }
-
-  // 2. Access Control: developer/admin only
-  const { user, profile } = await getCurrentProfile();
-  if (user && profile && profile.role !== "admin") {
-    redirect("/unauthorized");
   }
 
   return <RolePreviewCenter />;
