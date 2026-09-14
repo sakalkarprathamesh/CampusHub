@@ -19,13 +19,17 @@ export async function signInAction(
   const password = formData.get("password")?.toString();
   const redirectTo = formData.get("redirectTo")?.toString() || "";
 
-  if (!email || !password) {
-    return { error: "Please provide both email and password." };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  if (!password) {
+    return { error: "Please enter your password." };
   }
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Database configuration error. Please check Supabase credentials." };
+    return { error: "Unable to connect. Please try again." };
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,26 +38,29 @@ export async function signInAction(
   });
 
   if (error) {
+    const msg = error.message.toLowerCase();
+    if (
+      msg.includes("invalid login credentials") ||
+      msg.includes("invalid credentials") ||
+      msg.includes("user not found") ||
+      msg.includes("wrong password")
+    ) {
+      return { error: "Incorrect email or password." };
+    }
+    if (msg.includes("fetch") || msg.includes("network") || msg.includes("connect")) {
+      return { error: "Unable to connect. Please try again." };
+    }
     return { error: error.message };
   }
 
   if (!data.user) {
-    return { error: "Failed to sign in. Please try again." };
+    return { error: "Unable to connect. Please try again." };
   }
 
-  // Determine redirection target
-  let targetPath = "/dashboard";
+  // Determine redirection target (default to /dashboard/student)
+  let targetPath = "/dashboard/student";
   if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
     targetPath = redirectTo;
-  } else {
-    // Fetch profile role to redirect straight to appropriate dashboard
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    targetPath = getDashboardPathForRole(profile?.role as UserRole);
   }
 
   revalidatePath("/", "layout");
@@ -67,20 +74,22 @@ export async function signUpAction(
   const email = formData.get("email")?.toString().trim();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("fullName")?.toString().trim();
-  const department = formData.get("department")?.toString().trim() || "";
-  const yearOfStudy = formData.get("yearOfStudy")?.toString().trim() || "";
 
-  if (!email || !password || !fullName) {
-    return { error: "Full name, email, and password are required." };
+  if (!fullName) {
+    return { error: "Please enter your full name." };
   }
 
-  if (password.length < 6) {
-    return { error: "Password must be at least 6 characters long." };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  if (!password || password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
   }
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Database configuration error. Please check Supabase credentials." };
+    return { error: "Unable to connect. Please try again." };
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -89,17 +98,19 @@ export async function signUpAction(
     options: {
       data: {
         full_name: fullName,
-        department,
-        year_of_study: yearOfStudy,
       },
     },
   });
 
   if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("already registered") || msg.includes("already exists")) {
+      return { error: "An account with this email address already exists." };
+    }
     return { error: error.message };
   }
 
-  // Ensure profile row exists
+  // Ensure profile row exists with strictly 'student' default role
   if (data.user) {
     try {
       await supabase.from("profiles").upsert(
@@ -107,8 +118,6 @@ export async function signUpAction(
           id: data.user.id,
           email,
           full_name: fullName,
-          department: department || null,
-          year_of_study: yearOfStudy || null,
           role: "student",
         },
         { onConflict: "id" }
@@ -122,7 +131,7 @@ export async function signUpAction(
   if (!data.session) {
     return {
       success:
-        "Account created! Please check your email to confirm your account or sign in.",
+        "Your account was created. Please check your email for the confirmation link.",
     };
   }
 

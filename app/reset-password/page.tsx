@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -20,8 +21,8 @@ export default function ResetPasswordPage() {
     setError(null);
     setSuccess(null);
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!password || password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
@@ -33,23 +34,27 @@ export default function ResetPasswordPage() {
     startTransition(async () => {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) {
-        setError("Supabase client is not configured.");
+        setError("Unable to connect. Please try again.");
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      });
+      try {
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+        });
 
-      if (updateError) {
-        setError(updateError.message);
-        return;
+        if (updateError) {
+          setError(updateError.message);
+          return;
+        }
+
+        setSuccess("Your password has been reset successfully. Redirecting to sign in...");
+        setTimeout(() => {
+          router.push("/login");
+        }, 2000);
+      } catch (err: any) {
+        setError("Unable to connect. Please try again.");
       }
-
-      setSuccess("Your password has been reset successfully.");
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
     });
   };
 
@@ -60,7 +65,7 @@ export default function ResetPasswordPage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 ring-8 ring-blue-50/50 mb-2">
             <Lock className="w-6 h-6" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Set New Password
           </h1>
           <p className="text-sm text-slate-600">
@@ -68,22 +73,22 @@ export default function ResetPasswordPage() {
           </p>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-sm">
           {error && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-              <div className="flex-1">{error}</div>
+              <div className="flex-1 font-medium">{error}</div>
             </div>
           )}
 
           {success && (
             <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-2.5">
               <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600" />
-              <div className="flex-1 font-medium">{success} Redirecting to sign in...</div>
+              <div className="flex-1 font-medium">{success}</div>
             </div>
           )}
 
-          <form onSubmit={handleUpdate} className="space-y-4">
+          <form onSubmit={handleUpdate} className="space-y-4" noValidate>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 New Password
@@ -96,13 +101,18 @@ export default function ResetPasswordPage() {
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 characters"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -119,13 +129,25 @@ export default function ResetPasswordPage() {
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   required
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
                   placeholder="Confirm new password"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  autoComplete="new-password"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -135,12 +157,12 @@ export default function ResetPasswordPage() {
               className="w-full mt-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isPending ? (
-                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
                 <>
-                  <span>Update Password</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Updating password...</span>
                 </>
+              ) : (
+                <span>Update password</span>
               )}
             </button>
           </form>

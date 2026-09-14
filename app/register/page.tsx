@@ -4,119 +4,148 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { UserPlus, Mail, Lock, User, GraduationCap, Building2, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { UserPlus, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState("");
-  const [yearOfStudy, setYearOfStudy] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  // Field-level error messages
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+    general?: string;
+  }>({});
+
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const validateEmail = (val: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrors({});
     setSuccess(null);
 
-    if (!fullName.trim() || !email.trim() || !password) {
-      setError("Please fill in all required fields.");
-      return;
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+    const newErrors: typeof errors = {};
+
+    if (!trimmedName) {
+      newErrors.fullName = "Please enter your full name.";
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+
+    if (!password || password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters.";
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     startTransition(async () => {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) {
-        setError("Supabase client is not configured. Please check environment variables.");
+        setErrors({ general: "Unable to connect. Please try again." });
         return;
       }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
-            department: department.trim() || null,
-            year_of_study: yearOfStudy || null,
-          },
-        },
-      });
-
-      if (signUpError) {
-        setError(signUpError.message);
-        return;
-      }
-
-      // Upsert profile record explicitly to guarantee immediate availability
-      if (data.user) {
-        try {
-          await supabase.from("profiles").upsert(
-            {
-              id: data.user.id,
-              email: email.trim(),
-              full_name: fullName.trim(),
-              department: department.trim() || null,
-              year_of_study: yearOfStudy || null,
-              role: "student",
+      try {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password,
+          options: {
+            data: {
+              full_name: trimmedName,
             },
-            { onConflict: "id" }
-          );
-        } catch (e) {
-          // safe trigger fallback
-        }
-      }
+          },
+        });
 
-      if (!data.session) {
-        setSuccess(
-          "Registration successful! Please check your email to confirm your account or sign in."
-        );
-      } else {
-        router.push("/onboarding");
-        router.refresh();
+        if (signUpError) {
+          const msg = signUpError.message.toLowerCase();
+          if (msg.includes("already registered") || msg.includes("already exists")) {
+            setErrors({ email: "An account with this email address already exists." });
+          } else if (msg.includes("valid email") || msg.includes("invalid email")) {
+            setErrors({ email: "Please enter a valid email address." });
+          } else if (msg.includes("password")) {
+            setErrors({ password: signUpError.message });
+          } else {
+            setErrors({ general: signUpError.message });
+          }
+          return;
+        }
+
+        // Upsert matching profile record with strictly 'student' role
+        if (data.user) {
+          try {
+            await supabase.from("profiles").upsert(
+              {
+                id: data.user.id,
+                email: trimmedEmail,
+                full_name: trimmedName,
+                role: "student",
+              },
+              { onConflict: "id" }
+            );
+          } catch {
+            // DB trigger handle_new_user acts as backup
+          }
+        }
+
+        // If email confirmation is required by Supabase project
+        if (!data.session) {
+          setSuccess("Your account was created. Please check your email for the confirmation link.");
+        } else {
+          router.push("/onboarding");
+          router.refresh();
+        }
+      } catch (err: any) {
+        setErrors({ general: "Unable to connect. Please try again." });
       }
     });
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-lg space-y-6">
+    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 ring-8 ring-blue-50/50 mb-2">
             <UserPlus className="w-6 h-6" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Create Your Account
           </h1>
           <p className="text-sm text-slate-600">
-            Join the CampusHub network to explore clubs, attend events, and collaborate with peers.
+            Join CampusHub to discover clubs, events, and student communities.
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm">
-          {error && (
+        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-sm">
+          {errors.general && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200/80 text-red-700 text-sm flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-              <div className="flex-1 font-medium">{error}</div>
+              <div className="flex-1 font-medium">{errors.general}</div>
             </div>
           )}
 
@@ -135,10 +164,11 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4" noValidate>
+            {/* 1. Full Name */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Full Name <span className="text-red-500">*</span>
+                Full name
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -148,16 +178,28 @@ export default function RegisterPage() {
                   type="text"
                   required
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: undefined }));
+                  }}
                   placeholder="Alex Rivera"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  autoComplete="name"
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 transition ${
+                    errors.fullName
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                  }`}
                 />
               </div>
+              {errors.fullName && (
+                <p className="mt-1 text-xs text-red-600 font-medium">{errors.fullName}</p>
+              )}
             </div>
 
+            {/* 2. Personal Email Address */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Campus Email Address <span className="text-red-500">*</span>
+                Personal email address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -167,120 +209,120 @@ export default function RegisterPage() {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex.rivera@campushub.edu"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
+                  placeholder="alex.rivera@gmail.com"
+                  autoComplete="email"
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 transition ${
+                    errors.email
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                  }`}
                 />
               </div>
+              {errors.email ? (
+                <p className="mt-1 text-xs text-red-600 font-medium">{errors.email}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Use any valid personal email. A college email is not required.
+                </p>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Department / Major
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="Computer Science"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                  />
+            {/* 3. Password */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
                 </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  }}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  className={`w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 transition ${
+                    errors.password
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Year of Study
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
-                  <select
-                    value={yearOfStudy}
-                    onChange={(e) => setYearOfStudy(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                  >
-                    <option value="">Select year</option>
-                    <option value="Freshman">Freshman (1st Year)</option>
-                    <option value="Sophomore">Sophomore (2nd Year)</option>
-                    <option value="Junior">Junior (3rd Year)</option>
-                    <option value="Senior">Senior (4th Year)</option>
-                    <option value="Graduate">Graduate / Masters</option>
-                    <option value="PhD">PhD / Doctorate</option>
-                  </select>
-                </div>
-              </div>
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-600 font-medium">{errors.password}</p>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min 6 chars"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+            {/* 4. Confirm Password */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Confirm password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
                 </div>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (errors.confirmPassword)
+                      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                  }}
+                  placeholder="Confirm your password"
+                  autoComplete="new-password"
+                  className={`w-full pl-10 pr-10 py-2.5 bg-slate-50/50 border rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 transition ${
+                    errors.confirmPassword
+                      ? "border-red-300 focus:ring-red-500/20 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                  />
-                </div>
-              </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-600 font-medium">{errors.confirmPassword}</p>
+              )}
             </div>
 
-            <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-blue-800">
-              <span className="font-semibold">Role Note:</span> All new accounts start with the default <strong>Student</strong> role. Leadership and Faculty permissions are assigned by campus administration.
-            </div>
-
+            {/* 5. Submit Button */}
             <button
               type="submit"
               disabled={isPending}
               className="w-full mt-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isPending ? (
-                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
                 <>
-                  <span>Create Account</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Creating account...</span>
                 </>
+              ) : (
+                <span>Create account</span>
               )}
             </button>
           </form>
