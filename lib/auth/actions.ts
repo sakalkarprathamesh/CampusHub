@@ -14,6 +14,7 @@ import {
 import { sanitizeDatabaseError } from "@/lib/errors";
 import { UserRole } from "@/types/database";
 import { SEED_EVENTS } from "@/lib/data/seed-data";
+import { ensureUserProfile } from "@/lib/auth/ensure-profile";
 
 export interface FormState {
   error?: string | null;
@@ -137,19 +138,14 @@ export async function signUpAction(
 
   // Ensure profile row exists with selected role
   if (data?.user) {
-    try {
-      await supabase.from("profiles").upsert(
-        {
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role,
-        },
-        { onConflict: "id" }
-      );
-    } catch {
-      // safe fallback if trigger handled it
-    }
+    await ensureUserProfile(supabase, {
+      id: data.user.id,
+      email,
+      user_metadata: {
+        full_name: fullName,
+        role,
+      },
+    });
   }
 
   // If email confirmation is enabled, user session won't be active immediately
@@ -280,18 +276,17 @@ export async function requestMembershipAction(
     return { error: "Please log in before joining a club." };
   }
 
-  // 1. Verify user profile exists
-  try {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .eq("id", user.id)
-      .maybeSingle();
+  // 1. Ensure user profile exists (auto-provisions missing profile if Auth user exists)
+  const profile = await ensureUserProfile(supabase, user);
 
-    if (!profile) {
-      return { error: "Your student profile is not set up yet. Please complete registration first." };
-    }
-  } catch {}
+  if (!profile) {
+    return { error: "Please complete your profile before joining a club." };
+  }
+
+  // 2. Role verification: only students can join clubs
+  if (profile.role !== "student" && profile.role !== "club_member") {
+    return { error: "Only student accounts can apply for club membership." };
+  }
 
   // 2. Check if already active member in club_members
   try {
@@ -1461,5 +1456,28 @@ export async function adminReviewEventAction({
 export async function getEventAttendeesAction(eventId: string) {
   return await getEventAttendees(eventId);
 }
+
+export async function registerProfileAfterSignupAction(
+  userId: string,
+  email: string,
+  fullName: string,
+  role: UserRole
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    await ensureUserProfile(supabase, {
+      id: userId,
+      email,
+      user_metadata: {
+        full_name: fullName,
+        role,
+      },
+    });
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
 
 

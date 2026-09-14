@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UserRole } from "@/types/database";
 import { getDashboardPathForRole } from "@/lib/auth/roles";
+import { registerProfileAfterSignupAction } from "@/lib/auth/actions";
 import {
   UserPlus,
   Mail,
@@ -169,15 +170,7 @@ function RegisterForm() {
         // Upsert matching profile record with selected role
         if (data.user) {
           try {
-            await supabase.from("profiles").upsert(
-              {
-                id: data.user.id,
-                email: trimmedEmail,
-                full_name: trimmedName,
-                role: role,
-              },
-              { onConflict: "id" }
-            );
+            await registerProfileAfterSignupAction(data.user.id, trimmedEmail, trimmedName, role);
           } catch {
             // DB trigger acts as backup
           }

@@ -36,7 +36,9 @@ We have created an all-in-one, idempotent, safe migration:
 
 | Object | Type | Action & Guarantees |
 |---|---|---|
-| `public.profiles` | Columns | Adds `bio`, `phone`, `skills`, and `interests` so students and members can customize their full academic profiles without schema cache errors. |
+| `public.profiles` | Columns & RLS | Adds `bio`, `phone`, `skills`, `interests`, and establishes RLS policies for `INSERT` (`auth.uid() = id`) and `UPDATE` (`auth.uid() = id`). |
+| `handle_new_user()` | Trigger | Automatic `SECURITY DEFINER` trigger on `auth.users` ensuring EVERY registered user automatically gets a matching row in `public.profiles`. |
+| Missing Profiles Backfill | Query | Automatically generates missing profile records for existing Auth accounts so older users can join clubs and register for events immediately. |
 | `public.membership_requests` | Table | Uses PostgreSQL `gen_random_uuid()`. Has both `student_id` and `user_id` synchronized automatically via trigger. Unique index prevents duplicate pending applications. |
 | `public.club_memberships` | View | Directly maps to `public.club_members` so code querying either table name works 100% without data duplication. |
 | `public.event_registrations` | Table | Valid UUIDs, auto-generated ticket codes (`TKT-XXXX`), and unique index preventing double-booking. |

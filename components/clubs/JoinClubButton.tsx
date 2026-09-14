@@ -237,9 +237,19 @@ export default function JoinClubButton({
             </div>
 
             {error && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span className="font-medium">{error}</span>
+                </div>
+                {error.toLowerCase().includes("profile") && (
+                  <Link
+                    href="/profile"
+                    className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                  >
+                    <span>Complete Profile &rarr;</span>
+                  </Link>
+                )}
               </div>
             )}
 

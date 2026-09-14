@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Profile, ClubMemberWithProfile, MembershipRequestWithDetails, Club } from "@/types/database";
 import { MEM_MEMBERSHIP_REQUESTS } from "@/lib/data";
 import { SEED_CLUBS } from "@/lib/data/seed-data";
+import { ensureUserProfile } from "@/lib/auth/ensure-profile";
 
 export interface CurrentUserContext {
   user: {
@@ -44,47 +45,8 @@ export async function getCurrentProfile(): Promise<CurrentUserContext> {
       return emptyContext;
     }
 
-    // Fetch profile
-    let { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    // If profile doesn't exist yet (e.g. newly signed up before trigger), create fallback or insert
-    if (!profile && !profileError) {
-      const fallbackName = user.user_metadata?.full_name || user.email.split("@")[0];
-      const { data: newProfile } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email,
-          full_name: fallbackName,
-          role: "student",
-        })
-        .select("*")
-        .maybeSingle();
-
-      profile = newProfile;
-    }
-
-    if (!profile) {
-      profile = {
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.email.split("@")[0],
-        avatar_url: null,
-        department: null,
-        year_of_study: null,
-        bio: null,
-        phone: null,
-        skills: [],
-        interests: [],
-        role: "student",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
+    // Ensure profile exists for authenticated user
+    const profile = await ensureUserProfile(supabase, user);
 
     // Fetch user's club memberships
     let memberships: any[] = [];
@@ -118,7 +80,7 @@ export async function getCurrentProfile(): Promise<CurrentUserContext> {
     });
 
     // If faculty coordinator, fetch clubs assigned to them
-    if (profile.role === "faculty_coordinator") {
+    if (profile?.role === "faculty_coordinator") {
       try {
         const { data: fClubs } = await supabase
           .from("clubs")

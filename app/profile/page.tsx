@@ -6,6 +6,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_CONFIGS, getRoleBadgeClass, getRoleLabel } from "@/lib/auth/roles";
 import { UserRole, Profile } from "@/types/database";
 import { sanitizeDatabaseError } from "@/lib/errors";
+import { registerProfileAfterSignupAction } from "@/lib/auth/actions";
 import {
   User,
   Mail,
@@ -46,6 +47,7 @@ export default function ProfilePage() {
 
   // Status feedback
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isNeedsCompletion, setIsNeedsCompletion] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -97,11 +99,13 @@ export default function ProfilePage() {
         setSkills(mergedSkills);
         setInterests(mergedInterests);
       } else {
-        // Fallback profile object
+        // Fallback profile object for user accounts missing a profile row
+        const fallbackName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Student";
+        const fallbackRole = (user.user_metadata?.role as UserRole) || "student";
         const p: Profile = {
           id: user.id,
           email: user.email || "",
-          full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          full_name: fallbackName,
           avatar_url: null,
           department: null,
           year_of_study: null,
@@ -109,7 +113,7 @@ export default function ProfilePage() {
           bio: extendedData.bio || null,
           skills: extendedData.skills || [],
           interests: extendedData.interests || [],
-          role: "student",
+          role: fallbackRole,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -119,6 +123,10 @@ export default function ProfilePage() {
         setBio(extendedData.bio || "");
         setSkills(extendedData.skills || []);
         setInterests(extendedData.interests || []);
+        setIsNeedsCompletion(true);
+
+        // Auto-provision server-side to guarantee row exists
+        registerProfileAfterSignupAction(user.id, user.email || "", fallbackName, fallbackRole).catch(() => {});
       }
       setIsLoading(false);
     }
@@ -175,20 +183,28 @@ export default function ProfilePage() {
         );
       } catch {}
 
-      // Attempt full update in Supabase
+      // Attempt full upsert in Supabase (creates row if missing, updates if existing)
       const { error } = await supabase
         .from("profiles")
-        .update({
-          full_name: fullName.trim(),
-          department: department.trim() || null,
-          year_of_study: yearOfStudy.trim() || null,
-          phone: phone.trim() || null,
-          bio: bio.trim() || null,
-          skills,
-          interests,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profile.id);
+        .upsert(
+          {
+            id: profile.id,
+            email: profile.email,
+            role: profile.role,
+            full_name: fullName.trim(),
+            department: department.trim() || null,
+            year_of_study: yearOfStudy.trim() || null,
+            phone: phone.trim() || null,
+            bio: bio.trim() || null,
+            skills,
+            interests,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+
+      // Also ensure server action synchronizes profile
+      await registerProfileAfterSignupAction(profile.id, profile.email, fullName.trim(), profile.role);
 
       if (error) {
         // If error is due to missing columns or schema cache sync
@@ -200,16 +216,21 @@ export default function ProfilePage() {
           error.message?.includes("Could not find the");
 
         if (isColumnOrSchema) {
-          // Fallback: update standard core columns in Supabase
+          // Fallback: upsert standard core columns in Supabase
           const { error: coreError } = await supabase
             .from("profiles")
-            .update({
-              full_name: fullName.trim(),
-              department: department.trim() || null,
-              year_of_study: yearOfStudy.trim() || null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", profile.id);
+            .upsert(
+              {
+                id: profile.id,
+                email: profile.email,
+                role: profile.role,
+                full_name: fullName.trim(),
+                department: department.trim() || null,
+                year_of_study: yearOfStudy.trim() || null,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "id" }
+            );
 
           if (coreError) {
             setFeedback({
@@ -224,6 +245,7 @@ export default function ProfilePage() {
             type: "success",
             text: "Profile details successfully updated!",
           });
+          setIsNeedsCompletion(false);
           setProfile((prev) =>
             prev
               ? {
@@ -248,6 +270,7 @@ export default function ProfilePage() {
         });
       } else {
         setFeedback({ type: "success", text: "Profile details successfully updated!" });
+        setIsNeedsCompletion(false);
         setProfile((prev) =>
           prev
             ? {
@@ -348,6 +371,20 @@ export default function ProfilePage() {
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500 mt-0.5" />
           )}
           <div className="font-medium">{feedback.text}</div>
+        </div>
+      )}
+
+      {isNeedsCompletion && (
+        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-950 text-xs flex items-start gap-3 shadow-xs">
+          <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div className="space-y-1">
+            <div className="font-bold text-sm text-blue-950">Complete Your Campus Profile</div>
+            <p className="text-blue-800 leading-relaxed">
+              Your account is authenticated, but your profile needs to be initialized. Please confirm your details below and click <strong>Save Changes</strong> to enable official club memberships and event registration passes.
+            </p>
+          </div>
         </div>
       )}
 
