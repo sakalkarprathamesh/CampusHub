@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Profile, ClubMemberWithProfile, MembershipRequestWithDetails, Club } from "@/types/database";
+import { MEM_MEMBERSHIP_REQUESTS } from "@/lib/data";
+import { SEED_CLUBS } from "@/lib/data/seed-data";
 
 export interface CurrentUserContext {
   user: {
@@ -135,7 +137,6 @@ export async function getCurrentProfile(): Promise<CurrentUserContext> {
       }
     }
 
-    // If admin, they have oversight over all clubs
     // Fetch pending requests for this user
     let pendingRequests: MembershipRequestWithDetails[] = [];
     try {
@@ -145,12 +146,29 @@ export async function getCurrentProfile(): Promise<CurrentUserContext> {
           *,
           club:clubs (*)
         `)
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},student_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      if (pData) pendingRequests = pData as MembershipRequestWithDetails[];
+      if (pData && pData.length > 0) {
+        pendingRequests = pData as MembershipRequestWithDetails[];
+      }
     } catch {
       // safe fallback
+    }
+
+    if (pendingRequests.length === 0) {
+      const memReqs = MEM_MEMBERSHIP_REQUESTS.filter(
+        (r) => r.user_id === user.id || r.student_id === user.id
+      );
+      if (memReqs.length > 0) {
+        pendingRequests = memReqs.map((r) => {
+          const club = SEED_CLUBS.find((c) => c.id === r.club_id);
+          return {
+            ...r,
+            club,
+          } as unknown as MembershipRequestWithDetails;
+        });
+      }
     }
 
     // Unread notifications count

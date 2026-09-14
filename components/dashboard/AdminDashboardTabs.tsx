@@ -7,6 +7,8 @@ import AdminEventManager from "@/components/dashboard/AdminEventManager";
 import AdminMembershipManager, { AdminMembershipRequest } from "@/components/dashboard/AdminMembershipManager";
 import AdminUserRoleManager from "@/components/dashboard/AdminUserRoleManager";
 import AdminActivityLogViewer from "@/components/dashboard/AdminActivityLogViewer";
+import AdminHealthCheck from "@/components/dashboard/AdminHealthCheck";
+import { DatabaseStatus } from "@/lib/data";
 import {
   LayoutDashboard,
   Building,
@@ -16,6 +18,7 @@ import {
   Activity,
   ChevronRight,
   Sparkles,
+  Database,
 } from "lucide-react";
 
 interface Props {
@@ -31,6 +34,7 @@ interface Props {
     upcomingEventsCount: number;
     totalMembers: number;
   };
+  dbStatus?: DatabaseStatus;
 }
 
 export default function AdminDashboardTabs({
@@ -41,9 +45,10 @@ export default function AdminDashboardTabs({
   logs,
   currentAdminId,
   stats,
+  dbStatus,
 }: Props) {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "clubs" | "events" | "memberships" | "roles" | "logs"
+    "overview" | "clubs" | "events" | "memberships" | "roles" | "logs" | "health"
   >("overview");
 
   const facultyProfiles = profiles.filter(
@@ -153,6 +158,30 @@ export default function AdminDashboardTabs({
           <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-700 font-bold">
             {logs.length}
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("health")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
+            activeTab === "health"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-600" />
+          <span>System Health</span>
+          {dbStatus && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                dbStatus.tableResults?.every((t) => t.status === "ok")
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {dbStatus.tableResults?.filter((t) => t.status === "ok").length || 0}/10
+            </span>
+          )}
         </button>
       </div>
 
@@ -313,6 +342,13 @@ export default function AdminDashboardTabs({
               </div>
             </div>
           </div>
+
+          {/* Database Health Section in Overview */}
+          {dbStatus && (
+            <div className="pt-2">
+              <AdminHealthCheck dbStatus={dbStatus} />
+            </div>
+          )}
         </div>
       )}
 
@@ -336,6 +372,13 @@ export default function AdminDashboardTabs({
 
       {/* TAB CONTENT: AUDIT LOGS */}
       {activeTab === "logs" && <AdminActivityLogViewer initialLogs={logs} />}
+
+      {/* TAB CONTENT: DATABASE HEALTH */}
+      {activeTab === "health" && dbStatus && (
+        <div className="space-y-4">
+          <AdminHealthCheck dbStatus={dbStatus} showSqlGuide={true} />
+        </div>
+      )}
     </div>
   );
 }

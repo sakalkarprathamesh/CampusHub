@@ -373,6 +373,7 @@ export default async function ClubDetailPage({ params }: ClubPageProps) {
                 memberRole={memberRole}
                 initialPendingRequestId={existingRequest?.id}
                 initialStatus={existingRequest?.status}
+                initialRejectionReason={existingRequest?.rejection_reason}
               />
             </div>
           </div>

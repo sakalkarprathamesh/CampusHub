@@ -6,6 +6,7 @@ import {
   getClubs,
 } from "@/lib/data";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import AdminHealthCheck from "@/components/dashboard/AdminHealthCheck";
 import {
   Database,
   CheckCircle2,
@@ -240,82 +241,8 @@ export default async function SupabaseTestPage() {
         )}
       </section>
 
-      {/* 8 Tables Diagnostic Matrix */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <Database className="h-4 w-4 text-slate-500" />
-              <span>8-Table Verification Matrix</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Individual table-level check verifying PostgreSQL schema and RLS policies.
-            </p>
-          </div>
-          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full self-start sm:self-auto">
-            {dbStatus.tableResults?.filter((t) => t.status === "ok").length || 0} / 8 tables OK
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {dbStatus.tableResults?.map((t) => {
-            const isOk = t.status === "ok";
-            const isErr = t.status === "error";
-            return (
-              <div
-                key={t.table}
-                className={`p-3.5 rounded-xl border text-xs space-y-1.5 transition-colors ${
-                  isOk
-                    ? "bg-emerald-50/50 border-emerald-200"
-                    : isErr
-                    ? "bg-rose-50/50 border-rose-200"
-                    : "bg-slate-50 border-slate-200"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-slate-900">
-                    {t.table}
-                  </span>
-                  {isOk && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span>Live</span>
-                    </span>
-                  )}
-                  {isErr && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
-                      <XCircle className="h-3 w-3" />
-                      <span>Failed</span>
-                    </span>
-                  )}
-                  {!isOk && !isErr && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded">
-                      Fallback
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-[11px] text-slate-600 flex items-center justify-between">
-                  <span>Count:</span>
-                  <span className="font-semibold text-slate-900">
-                    {t.count !== undefined
-                      ? `${t.count} rows`
-                      : isLiveConnected
-                      ? "0 rows"
-                      : "Local seed"}
-                  </span>
-                </div>
-
-                {t.error && (
-                  <p className="text-[10px] text-rose-600 bg-white/80 p-1.5 rounded border border-rose-100 font-mono truncate">
-                    {t.error}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {/* 10 Tables Diagnostic Matrix */}
+      <AdminHealthCheck dbStatus={dbStatus} showSqlGuide={true} />
 
       {/* Database Counts Matrix */}
       <section className="space-y-4">

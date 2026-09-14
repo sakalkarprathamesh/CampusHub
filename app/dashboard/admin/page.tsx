@@ -2,7 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getStatistics, getClubs, getAllEventsForAdmin, getAdminActivityLogs } from "@/lib/data";
+import {
+  getStatistics,
+  getClubs,
+  getAllEventsForAdmin,
+  getAdminActivityLogs,
+  getDatabaseStatus,
+} from "@/lib/data";
 import { getRoleBadgeClass, getRoleLabel } from "@/lib/auth/roles";
 import { SEED_PROFILES } from "@/lib/data/seed-data";
 import AdminDashboardTabs from "@/components/dashboard/AdminDashboardTabs";
@@ -24,10 +30,13 @@ export default async function AdminDashboardPage() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const stats = await getStatistics();
-  const allClubs = await getClubs();
-  const allEvents = await getAllEventsForAdmin();
-  const allLogs = await getAdminActivityLogs(40);
+  const [stats, allClubs, allEvents, allLogs, dbStatus] = await Promise.all([
+    getStatistics(),
+    getClubs(),
+    getAllEventsForAdmin(),
+    getAdminActivityLogs(40),
+    getDatabaseStatus(),
+  ]);
 
   // Fetch all profiles
   let allProfiles: Profile[] = [];
@@ -118,6 +127,7 @@ export default async function AdminDashboardPage() {
         logs={allLogs}
         currentAdminId={user.id}
         stats={stats}
+        dbStatus={dbStatus}
       />
     </div>
   );

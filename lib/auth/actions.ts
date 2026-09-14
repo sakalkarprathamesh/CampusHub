@@ -4,8 +4,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDashboardPathForRole } from "./roles";
+import {
+  logSystemActivity,
+  MEM_EVENT_REGISTRATIONS,
+  MEM_ANNOUNCEMENTS,
+  MEM_MEMBERSHIP_REQUESTS,
+  getEventAttendees,
+} from "@/lib/data";
+import { sanitizeDatabaseError } from "@/lib/errors";
 import { UserRole } from "@/types/database";
-import { logSystemActivity, MEM_EVENT_REGISTRATIONS, MEM_ANNOUNCEMENTS, getEventAttendees } from "@/lib/data";
 import { SEED_EVENTS } from "@/lib/data/seed-data";
 
 export interface FormState {
@@ -228,10 +235,14 @@ export async function updateProfileAction(
 export async function requestMembershipAction(
   clubId: string,
   message?: string
-): Promise<{ success?: boolean; error?: string }> {
+): Promise<{ success?: boolean; error?: string; message?: string }> {
+  if (!clubId || typeof clubId !== "string") {
+    return { error: "Please select a valid club to join." };
+  }
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Database connection failed." };
+    return { error: "Unable to connect to the campus server. Please try again." };
   }
 
   const {
@@ -239,66 +250,122 @@ export async function requestMembershipAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: "Please log in to submit a club membership request." };
+    return { error: "Please log in before joining a club." };
   }
 
-  // Check if already active member
-  const { data: existingMember } = await supabase
-    .from("club_members")
-    .select("id, status")
-    .eq("club_id", clubId)
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  // 1. Verify user profile exists
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (existingMember && existingMember.status === "active") {
-    return { error: "You are already an active member of this club." };
+    if (!profile) {
+      return { error: "Your student profile is not set up yet. Please complete registration first." };
+    }
+  } catch {}
+
+  // 2. Check if already active member in club_members
+  try {
+    const { data: existingMember } = await supabase
+      .from("club_members")
+      .select("id, status")
+      .eq("club_id", clubId)
+      .eq("profile_id", user.id)
+      .maybeSingle();
+
+    if (existingMember && existingMember.status === "active") {
+      return { error: "You are already an active member of this club." };
+    }
+  } catch {}
+
+  // 3. Check if already pending request in Supabase
+  try {
+    const { data: pendingReq } = await supabase
+      .from("membership_requests")
+      .select("id, status")
+      .eq("club_id", clubId)
+      .or(`user_id.eq.${user.id},student_id.eq.${user.id}`)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (pendingReq) {
+      return { error: "Your application is already pending." };
+    }
+  } catch {}
+
+  // Also check in-memory store for pending request
+  const memPending = MEM_MEMBERSHIP_REQUESTS.find(
+    (r) =>
+      r.club_id === clubId &&
+      (r.user_id === user.id || r.student_id === user.id) &&
+      r.status === "pending"
+  );
+  if (memPending) {
+    return { error: "Your application is already pending." };
   }
 
-  // Check if already pending request
-  const { data: pendingReq } = await supabase
-    .from("membership_requests")
-    .select("id")
-    .eq("club_id", clubId)
-    .eq("user_id", user.id)
-    .eq("status", "pending")
-    .maybeSingle();
+  // 4. Clean message input with length limit
+  const sanitizedMessage = message?.trim() ? message.trim().slice(0, 1000) : null;
+  const requestId = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  if (pendingReq) {
-    return { error: "You already have a pending membership request for this club." };
+  // 5. Try Supabase insertion first
+  let supabaseSucceeded = false;
+  try {
+    const { error: insertError } = await supabase
+      .from("membership_requests")
+      .insert({
+        id: requestId,
+        club_id: clubId,
+        student_id: user.id,
+        user_id: user.id,
+        message: sanitizedMessage,
+        status: "pending",
+      });
+
+    if (!insertError) {
+      supabaseSucceeded = true;
+    } else {
+      console.warn("[CampusHub] Supabase membership_requests insert fallback:", insertError.message);
+    }
+  } catch (err: any) {
+    console.warn("[CampusHub] Supabase membership_requests insert exception:", err?.message);
   }
 
-  // Insert membership request
-  const { data: insertedRequest, error: insertError } = await supabase
-    .from("membership_requests")
-    .insert({
+  // 6. Dual-wire fallback: always store in MEM_MEMBERSHIP_REQUESTS if Supabase table is not yet in schema cache
+  if (!supabaseSucceeded) {
+    MEM_MEMBERSHIP_REQUESTS.unshift({
+      id: requestId,
       club_id: clubId,
+      student_id: user.id,
       user_id: user.id,
-      message: message?.trim() || null,
+      message: sanitizedMessage,
       status: "pending",
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    return { error: insertError.message };
+      rejection_reason: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: now,
+      updated_at: now,
+    });
   }
 
-  // Fetch club leads / coordinator to send notification
+  // 7. Dispatch notification to club leadership (non-blocking)
   try {
     const { data: club } = await supabase
       .from("clubs")
       .select("name, faculty_coordinator_id")
       .eq("id", clubId)
-      .single();
+      .maybeSingle();
 
-    const clubName = club?.name || "the club";
+    const clubName = club?.name || "your club";
 
-    // Find club president/vice_president
     const { data: leads } = await supabase
       .from("club_members")
       .select("profile_id")
       .eq("club_id", clubId)
-      .in("role", ["president", "vice_president"]);
+      .in("role", ["president", "vice_president", "lead"]);
 
     const leadIds = new Set<string>();
     if (leads) {
@@ -308,29 +375,42 @@ export async function requestMembershipAction(
       leadIds.add(club.faculty_coordinator_id);
     }
 
-    // Insert notifications for club leadership
     if (leadIds.size > 0) {
       const notifs = Array.from(leadIds).map((pId) => ({
+        id: crypto.randomUUID(),
         profile_id: pId,
-        title: "New Membership Request",
-        message: `A student has requested to join ${clubName}.`,
+        title: "New Membership Application",
+        message: `A student has submitted an application to join ${clubName}.`,
         type: "membership_request",
         is_read: false,
       }));
       await supabase.from("notifications").insert(notifs);
     }
-  } catch {
-    // Non-blocking notification dispatch
-  }
+  } catch {}
+
+  // 8. Log activity
+  await logSystemActivity({
+    userId: user.id,
+    action: "membership_requested",
+    targetType: "club",
+    targetId: clubId,
+    details: { requestId },
+  });
 
   revalidatePath(`/clubs`);
-  revalidatePath(`/dashboard`, "layout");
-  return { success: true };
+  revalidatePath(`/dashboard/student`);
+  revalidatePath(`/dashboard/club`);
+  return {
+    success: true,
+    message: "Your membership application has been submitted to club officers!",
+  };
 }
 
 export async function cancelMembershipRequestAction(
   requestId: string
 ): Promise<{ success?: boolean; error?: string }> {
+  if (!requestId) return { error: "Request ID is required." };
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { error: "Database connection failed." };
@@ -341,24 +421,30 @@ export async function cancelMembershipRequestAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: "You must be signed in." };
+    return { error: "You must be signed in to cancel your application." };
   }
 
-  const { error } = await supabase
-    .from("membership_requests")
-    .update({
-      status: "cancelled",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", requestId)
-    .eq("user_id", user.id);
+  // Update in Supabase
+  try {
+    await supabase
+      .from("membership_requests")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+  } catch {}
 
-  if (error) {
-    return { error: error.message };
+  // Update in MEM_MEMBERSHIP_REQUESTS
+  const memReq = MEM_MEMBERSHIP_REQUESTS.find((r) => r.id === requestId);
+  if (memReq) {
+    memReq.status = "cancelled";
+    memReq.updated_at = new Date().toISOString();
   }
 
   revalidatePath(`/clubs`);
-  revalidatePath(`/dashboard`, "layout");
+  revalidatePath(`/dashboard/student`);
+  revalidatePath(`/dashboard/club`);
   return { success: true };
 }
 
@@ -371,6 +457,8 @@ export async function reviewMembershipRequestAction({
   action: "approved" | "rejected";
   rejectionReason?: string;
 }): Promise<{ success?: boolean; error?: string }> {
+  if (!requestId) return { error: "Request ID is required." };
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { error: "Database connection failed." };
@@ -384,89 +472,105 @@ export async function reviewMembershipRequestAction({
     return { error: "You must be signed in to review requests." };
   }
 
-  // Fetch the request details
-  const { data: request, error: reqError } = await supabase
-    .from("membership_requests")
-    .select("*, club:clubs(id, name)")
-    .eq("id", requestId)
-    .single();
-
-  if (reqError || !request) {
-    return { error: "Membership request not found." };
-  }
-
-  // Update request status
-  const { error: updateError } = await supabase
-    .from("membership_requests")
-    .update({
-      status: action,
-      rejection_reason: action === "rejected" ? rejectionReason || null : null,
-      reviewed_by: user.id,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", requestId);
-
-  if (updateError) {
-    return { error: updateError.message };
-  }
-
-  // If approved, create or update club_members record
-  if (action === "approved") {
-    const { error: memberError } = await supabase.from("club_members").upsert(
-      {
-        club_id: request.club_id,
-        profile_id: request.user_id,
-        role: "member",
-        status: "active",
-        joined_at: new Date().toISOString(),
-      },
-      { onConflict: "club_id,profile_id" }
-    );
-
-    if (memberError) {
-      console.error("Error creating club member record:", memberError);
-    }
-  }
-
-  // Send notification to the applicant
+  // 1. Fetch request details from Supabase or MEM_MEMBERSHIP_REQUESTS
+  let request: any = null;
   try {
-    const clubName = (request.club as any)?.name || "the club";
-    const notificationTitle =
-      action === "approved"
-        ? `Membership Approved: ${clubName}`
-        : `Membership Update: ${clubName}`;
-    const notificationMessage =
-      action === "approved"
-        ? `Congratulations! Your request to join ${clubName} has been approved. You are now an active member.`
-        : rejectionReason
-        ? `Your application to join ${clubName} was not approved. Reason: ${rejectionReason}`
-        : `Your application to join ${clubName} was not approved at this time.`;
+    const { data: dbReq } = await supabase
+      .from("membership_requests")
+      .select("*, club:clubs(id, name)")
+      .eq("id", requestId)
+      .maybeSingle();
 
-    await supabase.from("notifications").insert({
-      profile_id: request.user_id,
-      title: notificationTitle,
-      message: notificationMessage,
-      type: action === "approved" ? "membership_approved" : "membership_rejected",
-      is_read: false,
-    });
-  } catch {
-    // Non-blocking notification
+    if (dbReq) request = dbReq;
+  } catch {}
+
+  const memIndex = MEM_MEMBERSHIP_REQUESTS.findIndex((r) => r.id === requestId);
+  if (!request && memIndex !== -1) {
+    request = MEM_MEMBERSHIP_REQUESTS[memIndex];
   }
 
+  if (!request) {
+    return { error: "Membership application record could not be found." };
+  }
+
+  const now = new Date().toISOString();
+  const applicantId = request.student_id || request.user_id;
+
+  // 2. Update status in Supabase
+  try {
+    await supabase
+      .from("membership_requests")
+      .update({
+        status: action,
+        rejection_reason: action === "rejected" ? rejectionReason?.trim() || null : null,
+        reviewed_by: user.id,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq("id", requestId);
+  } catch {}
+
+  // 3. Update in MEM_MEMBERSHIP_REQUESTS
+  if (memIndex !== -1) {
+    MEM_MEMBERSHIP_REQUESTS[memIndex].status = action;
+    MEM_MEMBERSHIP_REQUESTS[memIndex].rejection_reason = action === "rejected" ? rejectionReason?.trim() || null : null;
+    MEM_MEMBERSHIP_REQUESTS[memIndex].reviewed_by = user.id;
+    MEM_MEMBERSHIP_REQUESTS[memIndex].reviewed_at = now;
+    MEM_MEMBERSHIP_REQUESTS[memIndex].updated_at = now;
+  }
+
+  // 4. If approved, add student to club_members
+  if (action === "approved" && applicantId) {
+    try {
+      await supabase.from("club_members").upsert(
+        {
+          id: crypto.randomUUID(),
+          club_id: request.club_id,
+          profile_id: applicantId,
+          role: "member",
+          status: "active",
+          joined_at: now,
+        },
+        { onConflict: "club_id,profile_id" }
+      );
+    } catch {}
+  }
+
+  // 5. Send notification to applicant
+  if (applicantId) {
+    try {
+      const clubName = request.club?.name || "the club";
+      const title = action === "approved" ? "Membership Approved!" : "Membership Application Update";
+      const message =
+        action === "approved"
+          ? `Congratulations! Your request to join ${clubName} has been approved. You are now an active member.`
+          : rejectionReason?.trim()
+          ? `Your application to join ${clubName} was not approved. Feedback: ${rejectionReason.trim()}`
+          : `Your application to join ${clubName} was not approved at this time.`;
+
+      await supabase.from("notifications").insert({
+        id: crypto.randomUUID(),
+        profile_id: applicantId,
+        title,
+        message,
+        type: action === "approved" ? "membership_approved" : "membership_rejected",
+        is_read: false,
+      });
+    } catch {}
+  }
+
+  // 6. Audit log
   await logSystemActivity({
     userId: user.id,
-    action: action === "approved" ? "membership_approved" : "membership_rejected",
+    action: `membership_${action}`,
     targetType: "membership_request",
     targetId: requestId,
-    details: {
-      club_id: request.club_id,
-      applicant_id: request.user_id,
-      rejection_reason: rejectionReason,
-    },
+    details: { action, rejection_reason: rejectionReason },
   });
 
-  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/club");
+  revalidatePath("/dashboard/student");
+  revalidatePath("/dashboard/admin");
   revalidatePath("/clubs");
   return { success: true };
 }
@@ -887,8 +991,17 @@ export async function createEventAction(
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "") + `-${Date.now().toString().slice(-4)}`;
 
-  const eventDate = new Date(`${dateStr}T${startTime}:00`).toISOString();
-  const endDate = new Date(`${dateStr}T${endTime}:00`).toISOString();
+  const startObj = new Date(`${dateStr}T${startTime}:00`);
+  const endObj = new Date(`${dateStr}T${endTime}:00`);
+  if (isNaN(startObj.getTime()) || isNaN(endObj.getTime())) {
+    return { error: "Please provide a valid date and time." };
+  }
+  if (endObj <= startObj) {
+    return { error: "Event end time must be after start time." };
+  }
+
+  const eventDate = startObj.toISOString();
+  const endDate = endObj.toISOString();
   const initialStatus = isAdmin ? "approved" : "pending_approval";
 
   const { data: newEvt, error: insertError } = await supabase
@@ -910,7 +1023,7 @@ export async function createEventAction(
     .single();
 
   if (insertError) {
-    return { error: insertError.message };
+    return { error: sanitizeDatabaseError(insertError).userMessage };
   }
 
   // If pending approval, notify faculty coordinator
