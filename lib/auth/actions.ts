@@ -105,13 +105,18 @@ export async function signUpAction(
   if (error) {
     const msg = error.message.toLowerCase();
     if (msg.includes("already registered") || msg.includes("already exists")) {
-      return { error: "An account with this email address already exists." };
+      return { error: "An account with this email already exists. Please log in instead." };
     }
     return { error: error.message };
   }
 
+  // Detect if user already registered when identities array is empty
+  if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return { error: "An account with this email already exists. Please log in instead." };
+  }
+
   // Ensure profile row exists with strictly 'student' default role
-  if (data.user) {
+  if (data?.user) {
     try {
       await supabase.from("profiles").upsert(
         {
@@ -128,10 +133,10 @@ export async function signUpAction(
   }
 
   // If email confirmation is enabled, user session won't be active immediately
-  if (!data.session) {
+  if (!data?.session) {
     return {
       success:
-        "Your account was created. Please check your email for the confirmation link.",
+        "Your account was created. Please check your email and click the confirmation link before logging in.",
     };
   }
 

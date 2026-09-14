@@ -1,22 +1,39 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "";
   const initialError = searchParams.get("error");
+  const prefillEmail = searchParams.get("email") || "";
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
   const [isPending, startTransition] = useTransition();
+
+  // Unconfirmed user state & resend confirmation
+  const [isUnconfirmed, setIsUnconfirmed] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const validateEmail = (val: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
@@ -25,6 +42,9 @@ export default function LoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsUnconfirmed(false);
+    setResendSuccess(null);
+    setResendError(null);
 
     const trimmedEmail = email.trim();
 
@@ -53,12 +73,19 @@ export default function LoginPage() {
 
         if (authError) {
           const msg = authError.message.toLowerCase();
+
+          // Unconfirmed email detection
+          if (msg.includes("email not confirmed") || msg.includes("unconfirmed")) {
+            setIsUnconfirmed(true);
+            setError("Please confirm your email before logging in.");
+            return;
+          }
+
           if (
             msg.includes("invalid login credentials") ||
             msg.includes("invalid credentials") ||
             msg.includes("user not found") ||
-            msg.includes("wrong password") ||
-            msg.includes("email not confirmed")
+            msg.includes("wrong password")
           ) {
             setError("Incorrect email or password.");
           } else if (msg.includes("fetch") || msg.includes("network") || msg.includes("connect")) {
@@ -70,7 +97,7 @@ export default function LoginPage() {
         }
 
         if (data.user) {
-          // If a specific redirect is requested, honor it
+          // Normal login: no email is sent, session is active
           let target = redirectTo;
           if (!target || target === "/dashboard" || target === "/login") {
             target = "/dashboard/student";
@@ -79,10 +106,50 @@ export default function LoginPage() {
           router.push(target);
           router.refresh();
         }
-      } catch (err: any) {
+      } catch {
         setError("Unable to connect. Please try again.");
       }
     });
+  };
+
+  const handleResendConfirmation = async () => {
+    if (cooldownSeconds > 0 || isResending) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+      setResendError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsResending(true);
+    setResendError(null);
+    setResendSuccess(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) {
+        setResendError("Unable to connect. Please try again.");
+        setIsResending(false);
+        return;
+      }
+
+      const { error: resendErr } = await supabase.auth.resend({
+        type: "signup",
+        email: trimmedEmail,
+      });
+
+      setIsResending(false);
+
+      if (resendErr) {
+        setResendError(resendErr.message);
+      } else {
+        setResendSuccess("A new confirmation email has been requested. Please check your inbox and spam folder.");
+        setCooldownSeconds(60);
+      }
+    } catch {
+      setIsResending(false);
+      setResendError("Unable to connect. Please try again.");
+    }
   };
 
   return (
@@ -94,7 +161,7 @@ export default function LoginPage() {
             <LogIn className="w-6 h-6" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Welcome back to CampusHub
+            Welcome back to CampusHub.
           </h1>
           <p className="text-sm text-slate-600">
             Sign in to discover clubs, events, and student communities.
@@ -107,6 +174,44 @@ export default function LoginPage() {
             <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200/80 text-red-700 text-sm flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
               <div className="flex-1 font-medium">{error}</div>
+            </div>
+          )}
+
+          {/* Unconfirmed user action & feedback */}
+          {isUnconfirmed && (
+            <div className="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-3">
+              <p>
+                Your personal email address has not been confirmed yet. Click below to request a fresh confirmation link.
+              </p>
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={cooldownSeconds > 0 || isResending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-medium rounded-lg text-xs transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isResending ? "animate-spin" : ""}`} />
+                <span>
+                  {isResending
+                    ? "Resending confirmation email..."
+                    : cooldownSeconds > 0
+                    ? `Resend confirmation email (${cooldownSeconds}s)`
+                    : "Resend confirmation email"}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {resendSuccess && (
+            <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-600" />
+              <div className="flex-1 font-medium">{resendSuccess}</div>
+            </div>
+          )}
+
+          {resendError && (
+            <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium">{resendError}</div>
             </div>
           )}
 
@@ -126,6 +231,7 @@ export default function LoginPage() {
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (error) setError(null);
+                    if (isUnconfirmed) setIsUnconfirmed(false);
                   }}
                   placeholder="Enter your personal email"
                   autoComplete="email"
