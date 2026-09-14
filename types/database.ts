@@ -2,7 +2,9 @@ export type UserRole = 'student' | 'club_member' | 'club_lead' | 'faculty_coordi
 export type MembershipRole = 'president' | 'vice_president' | 'secretary' | 'treasurer' | 'core_member' | 'member';
 export type MembershipStatus = 'active' | 'inactive' | 'pending' | 'alumni';
 export type MembershipRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
-export type EventStatus = 'draft' | 'submitted' | 'approved' | 'published' | 'completed' | 'cancelled';
+export type EventStatus = 'draft' | 'submitted' | 'pending_approval' | 'approved' | 'published' | 'completed' | 'cancelled' | 'rejected';
+export type ClubStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'suspended';
+export type EventRegistrationStatus = 'registered' | 'cancelled';
 
 export interface Profile {
   id: string;
@@ -47,6 +49,9 @@ export interface Club {
   contact_email: string | null;
   contact_phone: string | null;
   is_active: boolean;
+  status?: ClubStatus;
+  rejection_reason?: string | null;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
   // Relational joins
@@ -114,12 +119,17 @@ export interface Event {
   capacity: number;
   banner_url: string | null;
   status: EventStatus;
+  rejection_reason?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
   // Relational joins
   club?: Club;
   creator?: Profile | null;
+  registered_count?: number;
+  is_registered?: boolean;
 }
 
 export interface Notification {
@@ -146,6 +156,7 @@ export interface MembershipRequest {
   user_id: string;
   status: MembershipRequestStatus;
   message: string | null;
+  rejection_reason?: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -157,4 +168,43 @@ export interface MembershipRequestWithDetails extends MembershipRequest {
   user?: Profile;
   reviewer?: Profile | null;
 }
+
+export interface EventRegistration {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: EventRegistrationStatus;
+  created_at: string;
+  cancelled_at: string | null;
+  // Relational joins
+  event?: Event;
+  user?: Profile;
+}
+
+export interface Announcement {
+  id: string;
+  club_id: string;
+  created_by: string;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+  // Relational joins
+  club?: Club;
+  author?: Profile;
+}
+
+export interface AdminActivityLog {
+  id: string;
+  user_id: string | null;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  details: Record<string, any>;
+  created_at: string;
+  // Relational joins
+  user?: Profile | null;
+}
+
 

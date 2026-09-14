@@ -21,6 +21,9 @@ import {
   Event,
   PlatformStatistics,
   Profile,
+  EventRegistration,
+  Announcement,
+  AdminActivityLog,
 } from "@/types/database";
 
 export type ConnectionStatus = "connected" | "prototype" | "error";
@@ -900,3 +903,460 @@ export async function getCategories(): Promise<string[]> {
   const categories = Array.from(new Set(clubs.map((c) => c.category)));
   return categories.sort();
 }
+
+// ====================================================================
+// PHASE 3: EVENT REGISTRATIONS, ANNOUNCEMENTS & ADMIN ACTIVITY LOGS
+// ====================================================================
+
+// In-memory fallback stores (used if remote tables have not yet been migrated)
+export const MEM_EVENT_REGISTRATIONS: EventRegistration[] = [
+  {
+    id: "reg-sample-01",
+    event_id: "c1111111-1111-1111-1111-111111111101",
+    user_id: "b1111111-1111-1111-1111-111111111103",
+    status: "registered",
+    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+    cancelled_at: null,
+  },
+];
+
+export const MEM_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: "ann-01",
+    club_id: "22222222-2222-2222-2222-222222222201", // Coding Club
+    created_by: "b1111111-1111-1111-1111-111111111101", // Aarav Sharma
+    title: "HackMIT 2026 Orientation & Problem Statements",
+    content: "Greetings coders! HackMIT 2026 orientation begins this Friday at 4 PM in Ramanujan Hall. Teams will receive problem statements for Web3, AI, and Smart Campus tracks. Bring your laptops!",
+    is_pinned: true,
+    created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 12).toISOString(),
+  },
+  {
+    id: "ann-02",
+    club_id: "22222222-2222-2222-2222-222222222202", // Robotics Club
+    created_by: "b1111111-1111-1111-1111-111111111102", // Priya Patel
+    title: "Autonomous Bot Workshop Component Kits Distributed",
+    content: "Microcontroller kits (ESP32 & Motor Drivers) are now ready for pickup at Innovation Lab Room 302 for all registered workshop attendees. Please show your student ID.",
+    is_pinned: false,
+    created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+  },
+  {
+    id: "ann-03",
+    club_id: "22222222-2222-2222-2222-222222222203", // Design Club
+    created_by: "b1111111-1111-1111-1111-111111111101",
+    title: "UX/UI Design Challenge Submissions Open",
+    content: "Submissions for the Campus Redesign Figma Challenge are now officially open. Submit your interactive prototypes before Sunday midnight.",
+    is_pinned: true,
+    created_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+  },
+];
+
+export const MEM_ADMIN_LOGS: AdminActivityLog[] = [
+  {
+    id: "log-01",
+    user_id: "a1111111-1111-1111-1111-111111111101",
+    action: "club_approved",
+    target_type: "club",
+    target_id: "22222222-2222-2222-2222-222222222201",
+    details: { club_name: "Coding Club", note: "Approved for current academic year" },
+    created_at: new Date(Date.now() - 3600000 * 72).toISOString(),
+  },
+  {
+    id: "log-02",
+    user_id: "a1111111-1111-1111-1111-111111111101",
+    action: "event_approved",
+    target_type: "event",
+    target_id: "c1111111-1111-1111-1111-111111111101",
+    details: { title: "HackMIT 2026: Annual 36-Hour Hackathon" },
+    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+  },
+];
+
+export async function getUserRegisteredEvents(
+  userId: string
+): Promise<{ event: Event; registration: EventRegistration }[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("event_registrations")
+        .select(`
+          *,
+          event:events(
+            *,
+            club:clubs(
+              *,
+              organization:organizations(*)
+            )
+          )
+        `)
+        .eq("user_id", userId)
+        .eq("status", "registered")
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data.map((item: any) => ({
+          event: item.event as Event,
+          registration: {
+            id: item.id,
+            event_id: item.event_id,
+            user_id: item.user_id,
+            status: item.status,
+            created_at: item.created_at,
+            cancelled_at: item.cancelled_at,
+          },
+        }));
+      }
+    } catch {
+      // Safe fallback
+    }
+  }
+
+  // Fallback to in-memory registrations
+  const userRegs = MEM_EVENT_REGISTRATIONS.filter(
+    (r) => r.user_id === userId && r.status === "registered"
+  );
+  const result: { event: Event; registration: EventRegistration }[] = [];
+
+  for (const reg of userRegs) {
+    let evt = SEED_EVENTS.find((e) => e.id === reg.event_id);
+    if (!evt && supabase) {
+      try {
+        const { data } = await supabase.from("events").select("*, club:clubs(*)").eq("id", reg.event_id).maybeSingle();
+        if (data) evt = data;
+      } catch {}
+    }
+    if (evt) {
+      result.push({
+        event: hydrateSeedEvent(evt),
+        registration: reg,
+      });
+    }
+  }
+
+  return result;
+}
+
+export async function getEventRegistrationStatus(
+  eventId: string,
+  userId?: string | null
+): Promise<{
+  isRegistered: boolean;
+  registration: EventRegistration | null;
+  registeredCount: number;
+}> {
+  let registeredCount = 0;
+  let userRegistration: EventRegistration | null = null;
+  const supabase = getSupabaseServerClient();
+
+  if (supabase) {
+    try {
+      const { count } = await supabase
+        .from("event_registrations")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .eq("status", "registered");
+
+      if (count !== null && count !== undefined) {
+        registeredCount = count;
+      }
+
+      if (userId) {
+        const { data } = await supabase
+          .from("event_registrations")
+          .select("*")
+          .eq("event_id", eventId)
+          .eq("user_id", userId)
+          .eq("status", "registered")
+          .maybeSingle();
+
+        if (data) {
+          userRegistration = data as EventRegistration;
+        }
+      }
+
+      return {
+        isRegistered: Boolean(userRegistration),
+        registration: userRegistration,
+        registeredCount,
+      };
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Fallback from MEM_EVENT_REGISTRATIONS
+  const memRegs = MEM_EVENT_REGISTRATIONS.filter(
+    (r) => r.event_id === eventId && r.status === "registered"
+  );
+  registeredCount = memRegs.length;
+
+  if (userId) {
+    const found = memRegs.find((r) => r.user_id === userId);
+    if (found) userRegistration = found;
+  }
+
+  return {
+    isRegistered: Boolean(userRegistration),
+    registration: userRegistration,
+    registeredCount,
+  };
+}
+
+export async function getEventAttendees(eventId: string): Promise<EventRegistration[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("event_registrations")
+        .select(`
+          *,
+          user:profiles(*)
+        `)
+        .eq("event_id", eventId)
+        .eq("status", "registered")
+        .order("created_at", { ascending: true });
+
+      if (!error && data) {
+        return data as EventRegistration[];
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  const memRegs = MEM_EVENT_REGISTRATIONS.filter(
+    (r) => r.event_id === eventId && r.status === "registered"
+  );
+  return memRegs.map((r) => ({
+    ...r,
+    user: findProfile(r.user_id) || {
+      id: r.user_id,
+      full_name: "Student Attendee",
+      email: "student@campushub.edu",
+      avatar_url: null,
+      department: "Engineering",
+      year_of_study: "Year 2",
+      role: "student",
+      created_at: r.created_at,
+      updated_at: r.created_at,
+    },
+  }));
+}
+
+export async function getAnnouncementsForClub(clubId: string): Promise<Announcement[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select(`
+          *,
+          club:clubs(name, slug),
+          author:profiles(full_name, avatar_url, role)
+        `)
+        .eq("club_id", clubId)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        return data as Announcement[];
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  const mem = MEM_ANNOUNCEMENTS.filter((a) => a.club_id === clubId);
+  return mem.map((a) => {
+    const club = SEED_CLUBS.find((c) => c.id === a.club_id);
+    const author = findProfile(a.created_by);
+    return {
+      ...a,
+      club,
+      author,
+    };
+  });
+}
+
+export async function getRecentAnnouncementsForUser(
+  clubIds: string[]
+): Promise<Announcement[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase && clubIds.length > 0) {
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select(`
+          *,
+          club:clubs(name, slug),
+          author:profiles(full_name, avatar_url, role)
+        `)
+        .in("club_id", clubIds)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (!error && data) {
+        return data as Announcement[];
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  const mem = MEM_ANNOUNCEMENTS.filter(
+    (a) => clubIds.length === 0 || clubIds.includes(a.club_id)
+  );
+  return mem.slice(0, 5).map((a) => {
+    const club = SEED_CLUBS.find((c) => c.id === a.club_id);
+    const author = findProfile(a.created_by);
+    return {
+      ...a,
+      club,
+      author,
+    };
+  });
+}
+
+export async function getPendingEventsForFaculty(
+  facultyUserId: string,
+  isAdmin: boolean = false
+): Promise<Event[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      let query = supabase
+        .from("events")
+        .select(`
+          *,
+          club:clubs(*),
+          creator:profiles(*)
+        `)
+        .in("status", ["pending_approval", "submitted"])
+        .order("created_at", { ascending: false });
+
+      if (!isAdmin) {
+        const { data: facultyClubs } = await supabase
+          .from("clubs")
+          .select("id")
+          .eq("faculty_coordinator_id", facultyUserId);
+
+        const clubIds = facultyClubs?.map((c) => c.id) || [];
+        if (clubIds.length === 0) return [];
+        query = query.in("club_id", clubIds);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as Event[];
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  // Seed fallback
+  return SEED_EVENTS.filter((e) => e.status === "submitted").map(hydrateSeedEvent);
+}
+
+export async function getAllEventsForAdmin(): Promise<(Event & { registrations_count: number })[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .select(`
+          *,
+          club:clubs(*),
+          creator:profiles(*)
+        `)
+        .order("event_date", { ascending: false });
+
+      if (!error && data) {
+        return data.map((evt) => ({
+          ...evt,
+          registrations_count: 0,
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return SEED_EVENTS.map((e) => ({
+    ...hydrateSeedEvent(e),
+    registrations_count: 0,
+  }));
+}
+
+export async function getAdminActivityLogs(limit: number = 30): Promise<AdminActivityLog[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("admin_activity_logs")
+        .select(`
+          *,
+          user:profiles(*)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (!error && data) {
+        return data as AdminActivityLog[];
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return MEM_ADMIN_LOGS.slice(0, limit).map((l) => ({
+    ...l,
+    user: l.user_id ? findProfile(l.user_id) : null,
+  }));
+}
+
+export async function logSystemActivity({
+  userId,
+  action,
+  targetType,
+  targetId,
+  details = {},
+}: {
+  userId?: string | null;
+  action: string;
+  targetType: string;
+  targetId?: string | null;
+  details?: Record<string, any>;
+}): Promise<void> {
+  const logEntry: AdminActivityLog = {
+    id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    user_id: userId || null,
+    action,
+    target_type: targetType,
+    target_id: targetId || null,
+    details,
+    created_at: new Date().toISOString(),
+  };
+
+  MEM_ADMIN_LOGS.unshift(logEntry);
+
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      await supabase.from("admin_activity_logs").insert({
+        user_id: logEntry.user_id,
+        action: logEntry.action,
+        target_type: logEntry.target_type,
+        target_id: logEntry.target_id,
+        details: logEntry.details,
+      });
+    } catch {
+      // Non-blocking
+    }
+  }
+}
+

@@ -13,6 +13,10 @@ import {
   Clock,
   Shield,
   ArrowRight,
+  CalendarCheck,
+  CalendarX,
+  Megaphone,
+  Ticket,
   Inbox,
 } from "lucide-react";
 
@@ -80,6 +84,15 @@ export default function NotificationsManager({ initialNotifications }: Props) {
         return <Clock className="w-5 h-5 text-amber-500" />;
       case "role_updated":
         return <Shield className="w-5 h-5 text-purple-600" />;
+      case "event_registered":
+        return <Ticket className="w-5 h-5 text-emerald-600" />;
+      case "event_approved":
+        return <CalendarCheck className="w-5 h-5 text-blue-600" />;
+      case "event_cancelled":
+      case "event_rejected":
+        return <CalendarX className="w-5 h-5 text-red-500" />;
+      case "announcement_posted":
+        return <Megaphone className="w-5 h-5 text-indigo-600" />;
       default:
         return <Bell className="w-5 h-5 text-blue-600" />;
     }

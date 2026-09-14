@@ -1,7 +1,9 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getEventBySlug } from "@/lib/data";
+import { getEventBySlug, getEventRegistrationStatus } from "@/lib/data";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import EventRegistrationButton from "@/components/events/EventRegistrationButton";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -44,6 +46,8 @@ export default async function EventDetailPage({ params }: EventPageProps) {
     notFound();
   }
 
+  const { user } = await getCurrentProfile();
+  const regStatus = await getEventRegistrationStatus(event.id, user?.id);
   const isPast = new Date(event.event_date) < new Date();
 
   return (
@@ -244,18 +248,19 @@ export default async function EventDetailPage({ params }: EventPageProps) {
                 </div>
               </div>
 
-              {/* ACTION: COMING SOON BUTTON */}
+              {/* ACTION: EVENT REGISTRATION BUTTON */}
               <div className="pt-2">
-                <button
-                  disabled
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 py-3 px-4 text-xs font-bold text-slate-400 cursor-not-allowed shadow-none"
-                >
-                  <Ticket className="h-4 w-4 text-slate-400" />
-                  <span>Student Registration — Coming Soon (Phase 2)</span>
-                </button>
-                <p className="text-[11px] text-slate-400 text-center mt-2">
-                  Self-registration & QR ticket issuance will activate in Phase 2 with SSO.
-                </p>
+                <EventRegistrationButton
+                  eventId={event.id}
+                  eventSlug={event.slug}
+                  eventTitle={event.title}
+                  capacity={event.capacity || 100}
+                  initialRegisteredCount={regStatus.registeredCount}
+                  isLoggedIn={Boolean(user)}
+                  isPast={isPast}
+                  isCancelled={event.status === "cancelled"}
+                  initialIsRegistered={regStatus.isRegistered}
+                />
               </div>
             </div>
 

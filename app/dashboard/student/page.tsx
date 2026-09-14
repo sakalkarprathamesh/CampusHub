@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
-import { getUpcomingEvents } from "@/lib/data";
+import { getUpcomingEvents, getUserRegisteredEvents, getRecentAnnouncementsForUser, getClubs } from "@/lib/data";
 import { getRoleBadgeClass, getRoleLabel } from "@/lib/auth/roles";
 import StudentRequestsList from "@/components/dashboard/StudentRequestsList";
+import StudentRegisteredEvents from "@/components/dashboard/StudentRegisteredEvents";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ import {
   BookOpen,
   CheckCircle2,
   ExternalLink,
+  Ticket,
+  Megaphone,
+  Pin,
+  Star,
 } from "lucide-react";
 
 export default async function StudentDashboardPage() {
@@ -26,10 +31,21 @@ export default async function StudentDashboardPage() {
     redirect("/login?redirectTo=/dashboard/student");
   }
 
-  const upcomingEvents = await getUpcomingEvents({ limit: 3 });
-
   const activeMemberships = memberships.filter((m) => m.status === "active");
   const activePendingRequests = pendingRequests.filter((r) => r.status === "pending");
+  const activeClubIds = activeMemberships.map((m) => m.club_id);
+
+  const [upcomingEvents, registeredEvents, announcements, allClubs] = await Promise.all([
+    getUpcomingEvents({ limit: 4 }),
+    getUserRegisteredEvents(user.id),
+    getRecentAnnouncementsForUser(activeClubIds),
+    getClubs({ limit: 3 }),
+  ]);
+
+  // Recommended clubs excluding already joined clubs
+  const recommendedClubs = allClubs.filter(
+    (c) => !activeMemberships.some((m) => m.club_id === c.id)
+  );
 
   const role = profile?.role || "student";
   const roleBadge = getRoleBadgeClass(role);
@@ -90,6 +106,17 @@ export default async function StudentDashboardPage() {
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
+            <span>Registered Events</span>
+            <Ticket className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            {registeredEvents.length}
+          </div>
+          <div className="text-[11px] text-slate-500">Active event passes claimed</div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
             <span>Pending Requests</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
@@ -102,33 +129,38 @@ export default async function StudentDashboardPage() {
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
             <span>Upcoming Events</span>
-            <Calendar className="w-4 h-4 text-emerald-500" />
+            <Calendar className="w-4 h-4 text-purple-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
             {upcomingEvents.length}
           </div>
           <div className="text-[11px] text-slate-500">Campus activities scheduled</div>
         </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Profile Status</span>
-            <Sparkles className="w-4 h-4 text-purple-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            {profile?.skills && profile.skills.length > 0 ? "Complete" : "Basic"}
-          </div>
-          <div className="text-[11px] text-slate-500">
-            {profile?.skills?.length || 0} skills & competencies
-          </div>
-        </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: My Clubs & Applications */}
+        {/* Left 2 Cols: Registered Events, Clubs, Applications & Announcements */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Active Memberships */}
+          {/* 1. My Registered Events */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Ticket className="w-5 h-5 text-emerald-600" />
+                <span>My Registered Events</span>
+              </h2>
+              <Link
+                href="/events"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                <span>Browse All Events</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <StudentRegisteredEvents initialEvents={registeredEvents} />
+          </div>
+
+          {/* 2. Active Memberships */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -201,7 +233,53 @@ export default async function StudentDashboardPage() {
             )}
           </div>
 
-          {/* Membership Requests Section */}
+          {/* 3. Club Announcements */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-indigo-600" />
+                <span>Club Announcements</span>
+              </h2>
+            </div>
+
+            {announcements.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-6 text-center text-xs text-slate-500">
+                No recent announcements from your clubs yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((ann) => (
+                  <div
+                    key={ann.id}
+                    className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-2 hover:border-slate-300 transition"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {ann.is_pinned && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                            <Pin className="w-3 h-3" />
+                            Pinned
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-blue-700">
+                          {ann.club?.name || "Campus Club"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {new Date(ann.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900">{ann.title}</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                      {ann.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 4. Membership Requests Section */}
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-amber-600" />
@@ -211,8 +289,45 @@ export default async function StudentDashboardPage() {
           </div>
         </div>
 
-        {/* Right Col: Campus Calendar & Quick Highlights */}
+        {/* Right Col: Recommended Clubs, Events Calendar & Tips */}
         <div className="space-y-6">
+          {/* Recommended Clubs */}
+          {recommendedClubs.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500" />
+                  <span>Recommended Clubs</span>
+                </h3>
+                <Link
+                  href="/clubs"
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                >
+                  All Clubs &rarr;
+                </Link>
+              </div>
+
+              <div className="space-y-3">
+                {recommendedClubs.map((club) => (
+                  <Link
+                    key={club.id}
+                    href={`/clubs/${club.slug}`}
+                    className="block p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 border border-slate-200/60 hover:border-blue-200 transition space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800 line-clamp-1">{club.name}</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        {club.category}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-1">{club.description}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Events */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -241,7 +356,7 @@ export default async function StudentDashboardPage() {
                   >
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span className="font-semibold text-blue-600">{dateStr}</span>
-                      <span>{evt.venue}</span>
+                      <span className="truncate max-w-[120px]">{evt.venue}</span>
                     </div>
                     <div className="text-xs font-bold text-slate-800 line-clamp-1">{evt.title}</div>
                   </Link>

@@ -161,6 +161,37 @@ export default function StudentRequestsList({ initialRequests }: Props) {
               </div>
             )}
 
+            {request.status === "rejected" && (
+              <div className="space-y-2">
+                <div className="p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-800 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5 text-red-900">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    <span>Application Not Approved</span>
+                  </div>
+                  {request.rejection_reason && (
+                    <p className="text-[11px] text-red-700 pl-5">
+                      <strong>Feedback from Leadership:</strong> &ldquo;{request.rejection_reason}&rdquo;
+                    </p>
+                  )}
+                  <p className="text-[11px] text-red-600 pl-5">
+                    You can review the club requirements, update your skills/details, and reapply below.
+                  </p>
+                </div>
+
+                {clubSlug && (
+                  <div className="pt-1">
+                    <Link
+                      href={`/clubs/${clubSlug}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition"
+                    >
+                      <span>Apply Again to {clubName}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             {feedback && feedback.id === request.id && (
               <div
                 className={`p-2.5 rounded-lg text-xs font-medium ${

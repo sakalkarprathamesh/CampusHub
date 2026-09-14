@@ -3,21 +3,15 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRoleBadgeClass, getRoleLabel } from "@/lib/auth/roles";
-import ClubLeadRequestsManager, { ClubLeadRequest } from "@/components/dashboard/ClubLeadRequestsManager";
+import { getAnnouncementsForClub } from "@/lib/data";
+import { SEED_CLUBS, SEED_EVENTS } from "@/lib/data/seed-data";
+import { ClubLeadRequest } from "@/components/dashboard/ClubLeadRequestsManager";
+import { ClubMemberItem } from "@/components/dashboard/ClubLeadMembersManager";
+import ClubLeadDashboardTabs from "@/components/dashboard/ClubLeadDashboardTabs";
+import { Award, ExternalLink } from "lucide-react";
+import { Event, Announcement, Club } from "@/types/database";
 
 export const dynamic = "force-dynamic";
-
-import {
-  Users,
-  Clock,
-  Calendar,
-  Layers,
-  Sparkles,
-  ExternalLink,
-  ShieldCheck,
-  Award,
-  Building,
-} from "lucide-react";
 
 export default async function ClubDashboardPage() {
   const { user, profile, ledClubs } = await getCurrentProfile();
@@ -37,7 +31,11 @@ export default async function ClubDashboardPage() {
   // If user is club_lead or admin but ledClubs was empty, fetch first available clubs
   if (managedClubs.length === 0 && supabase) {
     const { data: allClubs } = await supabase.from("clubs").select("*").limit(2);
-    if (allClubs) managedClubs = allClubs;
+    if (allClubs && allClubs.length > 0) managedClubs = allClubs;
+  }
+
+  if (managedClubs.length === 0) {
+    managedClubs = (SEED_CLUBS as Club[]).slice(0, 2);
   }
 
   const primaryClub = managedClubs[0];
@@ -45,87 +43,123 @@ export default async function ClubDashboardPage() {
 
   // Fetch pending requests for managed clubs
   let pendingRequests: ClubLeadRequest[] = [];
-  let membersList: any[] = [];
-  let eventsCount = 0;
+  let membersList: ClubMemberItem[] = [];
+  let eventsList: Event[] = [];
+  let announcementsList: Announcement[] = [];
   let teamsCount = 0;
 
   if (supabase && clubIds.length > 0) {
     // 1. Pending membership requests
-    const { data: reqData } = await supabase
-      .from("membership_requests")
-      .select(`
-        id,
-        club_id,
-        status,
-        message,
-        created_at,
-        applicant:profiles!membership_requests_user_id_fkey (
+    try {
+      const { data: reqData } = await supabase
+        .from("membership_requests")
+        .select(`
           id,
-          full_name,
-          email,
-          department,
-          year_of_study,
-          bio,
-          skills
-        ),
-        club:clubs!membership_requests_club_id_fkey (
-          id,
-          name
-        )
-      `)
-      .in("club_id", clubIds)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+          club_id,
+          status,
+          message,
+          created_at,
+          applicant:profiles!membership_requests_user_id_fkey (
+            id,
+            full_name,
+            email,
+            department,
+            year_of_study,
+            bio,
+            skills
+          ),
+          club:clubs!membership_requests_club_id_fkey (
+            id,
+            name
+          )
+        `)
+        .in("club_id", clubIds)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
-    if (reqData) {
-      pendingRequests = reqData.map((r: any) => ({
-        id: r.id,
-        club_id: r.club_id,
-        status: r.status,
-        message: r.message,
-        created_at: r.created_at,
-        applicant: r.applicant || {
-          id: "unknown",
-          full_name: "Student Applicant",
-          email: "student@campushub.edu",
-          department: null,
-          year_of_study: null,
-        },
-        club: r.club || { id: r.club_id, name: "Managed Club" },
-      }));
-    }
+      if (reqData) {
+        pendingRequests = reqData.map((r: any) => ({
+          id: r.id,
+          club_id: r.club_id,
+          status: r.status,
+          message: r.message,
+          created_at: r.created_at,
+          applicant: r.applicant || {
+            id: "unknown",
+            full_name: "Student Applicant",
+            email: "student@campushub.edu",
+            department: null,
+            year_of_study: null,
+          },
+          club: r.club || { id: r.club_id, name: "Managed Club" },
+        }));
+      }
+    } catch {}
 
     // 2. Members list
-    const { data: memData } = await supabase
-      .from("club_members")
-      .select(`
-        id,
-        role,
-        status,
-        joined_at,
-        profile:profiles (*)
-      `)
-      .in("club_id", clubIds)
-      .eq("status", "active")
-      .order("role");
+    try {
+      const { data: memData } = await supabase
+        .from("club_members")
+        .select(`
+          id,
+          club_id,
+          profile_id,
+          role,
+          status,
+          joined_at,
+          profile:profiles (*)
+        `)
+        .in("club_id", clubIds)
+        .eq("status", "active")
+        .order("role");
 
-    if (memData) {
-      membersList = memData;
-    }
+      if (memData) {
+        membersList = memData as unknown as ClubMemberItem[];
+      }
+    } catch {}
 
-    // 3. Events count
-    const { count: eCount } = await supabase
-      .from("events")
-      .select("*", { count: "exact", head: true })
-      .in("club_id", clubIds);
-    eventsCount = eCount || 0;
+    // 3. Events list
+    try {
+      const { data: eData } = await supabase
+        .from("events")
+        .select(`
+          *,
+          club:clubs (
+            id,
+            name,
+            slug
+          )
+        `)
+        .in("club_id", clubIds)
+        .order("event_date", { ascending: false });
+
+      if (eData && eData.length > 0) {
+        eventsList = eData as Event[];
+      }
+    } catch {}
 
     // 4. Teams count
-    const { count: tCount } = await supabase
-      .from("teams")
-      .select("*", { count: "exact", head: true })
-      .in("club_id", clubIds);
-    teamsCount = tCount || 0;
+    try {
+      const { count: tCount } = await supabase
+        .from("teams")
+        .select("*", { count: "exact", head: true })
+        .in("club_id", clubIds);
+      teamsCount = tCount || 0;
+    } catch {}
+  }
+
+  // Fallback events if database had none
+  if (eventsList.length === 0) {
+    eventsList = (SEED_EVENTS as Event[]).filter((e) => clubIds.includes(e.club_id));
+  }
+
+  // Fetch announcements
+  if (primaryClub) {
+    try {
+      announcementsList = await getAnnouncementsForClub(primaryClub.id);
+    } catch {
+      announcementsList = [];
+    }
   }
 
   const role = profile?.role || "club_lead";
@@ -152,7 +186,7 @@ export default async function ClubDashboardPage() {
             <p className="text-sm text-slate-500">
               Managing:{" "}
               <strong className="text-slate-800">
-                {managedClubs.map((c) => c.name).join(", ") || "ACM Student Chapter"}
+                {managedClubs.map((c) => c.name).join(", ") || "Student Chapter"}
               </strong>
             </p>
           </div>
@@ -169,119 +203,17 @@ export default async function ClubDashboardPage() {
         )}
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Club Members</span>
-            <Users className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            {membersList.length}
-          </div>
-          <div className="text-[11px] text-slate-500">Active roster members</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Pending Applicants</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            {pendingRequests.length}
-          </div>
-          <div className="text-[11px] text-slate-500">Require officer approval</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Active Teams</span>
-            <Layers className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            {teamsCount}
-          </div>
-          <div className="text-[11px] text-slate-500">Sub-teams & committees</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Scheduled Events</span>
-            <Calendar className="w-4 h-4 text-purple-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            {eventsCount}
-          </div>
-          <div className="text-[11px] text-slate-500">Club events in calendar</div>
-        </div>
-      </div>
-
-      {/* Main Grid: Pending Applications & Active Roster */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Pending Requests Column (2 cols) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-600" />
-              <span>Membership Applications ({pendingRequests.length})</span>
-            </h2>
-            <span className="text-xs text-slate-500">
-              Review and click Approve to add to active roster
-            </span>
-          </div>
-
-          <ClubLeadRequestsManager initialRequests={pendingRequests} />
-        </div>
-
-        {/* Members Roster Column (1 col) */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              <span>Active Roster</span>
-            </h2>
-            <span className="text-xs font-semibold text-slate-500">
-              {membersList.length} Total
-            </span>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-3 max-h-[600px] overflow-y-auto">
-            {membersList.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">
-                No members found in this roster.
-              </p>
-            ) : (
-              membersList.map((m) => {
-                const name = m.profile?.full_name || "Club Member";
-                const email = m.profile?.email || "";
-                const dept = m.profile?.department || "Student";
-                const roleFormatted = m.role.replace("_", " ");
-
-                return (
-                  <div
-                    key={m.id}
-                    className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
-                        {name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="overflow-hidden">
-                        <div className="text-xs font-bold text-slate-800 truncate">{name}</div>
-                        <div className="text-[11px] text-slate-500 truncate">{dept}</div>
-                      </div>
-                    </div>
-
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white text-slate-700 border border-slate-200 flex-shrink-0">
-                      {roleFormatted}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Main Tabbed Console */}
+      <ClubLeadDashboardTabs
+        pendingRequests={pendingRequests}
+        membersList={membersList}
+        eventsList={eventsList}
+        announcementsList={announcementsList}
+        managedClubs={managedClubs}
+        primaryClub={primaryClub}
+        currentUserId={user.id}
+        teamsCount={teamsCount}
+      />
     </div>
   );
 }

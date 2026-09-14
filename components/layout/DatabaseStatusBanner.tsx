@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Database, Info, X, ExternalLink, AlertTriangle } from "lucide-react";
-import { DatabaseStatus } from "@/lib/data";
+import type { DatabaseStatus } from "@/lib/data";
 
 interface DatabaseStatusBannerProps {
   status?: DatabaseStatus;
