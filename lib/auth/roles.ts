@@ -56,10 +56,11 @@ export function isClubLead(role?: UserRole | null): boolean {
   return role === "club_lead" || role === "admin";
 }
 
-export function getDashboardPathForRole(role?: UserRole | null): string {
+export function getDashboardPathForRole(role?: UserRole | string | null): string {
   switch (role) {
     case "admin":
       return "/dashboard/admin";
+    case "faculty":
     case "faculty_coordinator":
       return "/dashboard/faculty";
     case "club_lead":

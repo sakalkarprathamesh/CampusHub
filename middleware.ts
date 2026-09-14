@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest) {
     if (pathname === "/dashboard") {
       const targetUrl = request.nextUrl.clone();
       if (role === "admin") targetUrl.pathname = "/dashboard/admin";
-      else if (role === "faculty_coordinator") targetUrl.pathname = "/dashboard/faculty";
+      else if (role === "faculty_coordinator" || role === "faculty") targetUrl.pathname = "/dashboard/faculty";
       else if (role === "club_lead") targetUrl.pathname = "/dashboard/club";
       else targetUrl.pathname = "/dashboard/student";
       return NextResponse.redirect(targetUrl);
@@ -90,7 +90,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Restrict Faculty Dashboard
-    if (pathname.startsWith("/dashboard/faculty") && role !== "faculty_coordinator" && role !== "admin") {
+    if (pathname.startsWith("/dashboard/faculty") && role !== "faculty_coordinator" && role !== "faculty" && role !== "admin") {
       const targetUrl = request.nextUrl.clone();
       targetUrl.pathname = "/unauthorized";
       return NextResponse.redirect(targetUrl);

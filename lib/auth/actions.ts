@@ -87,6 +87,16 @@ export async function signUpAction(
     return { error: "Password must be at least 8 characters." };
   }
 
+  const rawRole = formData.get("role")?.toString().trim() || "student";
+  let role: UserRole = "student";
+  if (rawRole === "faculty" || rawRole === "faculty_coordinator") {
+    role = "faculty_coordinator";
+  } else if (rawRole === "club_lead") {
+    role = "club_lead";
+  } else if (rawRole === "admin") {
+    role = "admin";
+  }
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { error: "Unable to connect. Please try again." };
@@ -98,6 +108,7 @@ export async function signUpAction(
     options: {
       data: {
         full_name: fullName,
+        role,
       },
     },
   });
@@ -115,7 +126,7 @@ export async function signUpAction(
     return { error: "An account with this email already exists. Please log in instead." };
   }
 
-  // Ensure profile row exists with strictly 'student' default role
+  // Ensure profile row exists with selected role
   if (data?.user) {
     try {
       await supabase.from("profiles").upsert(
@@ -123,7 +134,7 @@ export async function signUpAction(
           id: data.user.id,
           email,
           full_name: fullName,
-          role: "student",
+          role,
         },
         { onConflict: "id" }
       );
@@ -141,7 +152,7 @@ export async function signUpAction(
   }
 
   revalidatePath("/", "layout");
-  redirect("/onboarding");
+  redirect(getDashboardPathForRole(role));
 }
 
 export async function signOutAction() {

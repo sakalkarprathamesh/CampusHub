@@ -4,6 +4,8 @@ import { useState, useEffect, useTransition, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UserRole } from "@/types/database";
+import { getDashboardPathForRole } from "@/lib/auth/roles";
 import {
   UserPlus,
   Mail,
@@ -19,6 +21,13 @@ import {
   KeyRound,
 } from "lucide-react";
 
+const ROLE_OPTIONS: { label: string; value: UserRole }[] = [
+  { label: "Student", value: "student" },
+  { label: "Club Lead", value: "club_lead" },
+  { label: "Faculty", value: "faculty_coordinator" },
+  { label: "Admin", value: "admin" },
+];
+
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +35,7 @@ function RegisterForm() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState(prefillEmail);
+  const [role, setRole] = useState<UserRole>("student");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +45,7 @@ function RegisterForm() {
   const [errors, setErrors] = useState<{
     fullName?: string;
     email?: string;
+    role?: string;
     password?: string;
     confirmPassword?: string;
     general?: string;
@@ -87,6 +98,10 @@ function RegisterForm() {
       newErrors.email = "Please enter a valid email address.";
     }
 
+    if (!role) {
+      newErrors.role = "Please select a role.";
+    }
+
     if (!password || password.length < 8) {
       newErrors.password = "Password must be at least 8 characters.";
     }
@@ -114,6 +129,7 @@ function RegisterForm() {
           options: {
             data: {
               full_name: trimmedName,
+              role: role,
             },
           },
         });
@@ -150,7 +166,7 @@ function RegisterForm() {
           return;
         }
 
-        // Upsert matching profile record with role: 'student'
+        // Upsert matching profile record with selected role
         if (data.user) {
           try {
             await supabase.from("profiles").upsert(
@@ -158,7 +174,7 @@ function RegisterForm() {
                 id: data.user.id,
                 email: trimmedEmail,
                 full_name: trimmedName,
-                role: "student",
+                role: role,
               },
               { onConflict: "id" }
             );
@@ -174,7 +190,7 @@ function RegisterForm() {
           setIsRegisteredPendingConfirmation(true);
         } else {
           // Auto-confirmed / confirmation turned off
-          router.push("/dashboard/student");
+          router.push(getDashboardPathForRole(role));
           router.refresh();
         }
       } catch {
@@ -402,7 +418,46 @@ function RegisterForm() {
           )}
         </div>
 
-        {/* 3. Password */}
+        {/* 3. Role */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+            Role
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {ROLE_OPTIONS.map((opt) => {
+              const isSelected = role === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium cursor-pointer transition select-none ${
+                    isSelected
+                      ? "border-blue-600 bg-blue-50/70 text-blue-900 ring-1 ring-blue-600/30"
+                      : "border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-100/70 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value={opt.value}
+                    checked={isSelected}
+                    onChange={() => {
+                      setRole(opt.value);
+                      if (errors.role) setErrors((prev) => ({ ...prev, role: undefined }));
+                    }}
+                    className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                    required
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          {errors.role && (
+            <p className="mt-1 text-xs text-red-600 font-medium">{errors.role}</p>
+          )}
+        </div>
+
+        {/* 4. Password */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Password
@@ -441,7 +496,7 @@ function RegisterForm() {
           )}
         </div>
 
-        {/* 4. Confirm Password */}
+        {/* 5. Confirm Password */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Confirm password
@@ -481,7 +536,7 @@ function RegisterForm() {
           )}
         </div>
 
-        {/* 5. Submit Button */}
+        {/* 6. Submit Button */}
         <button
           type="submit"
           disabled={isPending}
