@@ -36,6 +36,7 @@ We have created an all-in-one, idempotent, safe migration:
 
 | Object | Type | Action & Guarantees |
 |---|---|---|
+| `public.profiles` | Columns | Adds `bio`, `phone`, `skills`, and `interests` so students and members can customize their full academic profiles without schema cache errors. |
 | `public.membership_requests` | Table | Uses PostgreSQL `gen_random_uuid()`. Has both `student_id` and `user_id` synchronized automatically via trigger. Unique index prevents duplicate pending applications. |
 | `public.club_memberships` | View | Directly maps to `public.club_members` so code querying either table name works 100% without data duplication. |
 | `public.event_registrations` | Table | Valid UUIDs, auto-generated ticket codes (`TKT-XXXX`), and unique index preventing double-booking. |

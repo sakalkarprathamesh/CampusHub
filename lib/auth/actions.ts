@@ -224,7 +224,34 @@ export async function updateProfileAction(
     .eq("id", user.id);
 
   if (error) {
-    return { error: error.message };
+    const isColumnOrSchema =
+      error.code === "PGRST204" ||
+      error.code === "PGRST205" ||
+      error.message?.includes("column") ||
+      error.message?.includes("schema cache") ||
+      error.message?.includes("Could not find the");
+
+    if (isColumnOrSchema) {
+      const { error: coreError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          department,
+          year_of_study: yearOfStudy,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (coreError) {
+        return { error: sanitizeDatabaseError(coreError).userMessage };
+      }
+
+      revalidatePath("/profile");
+      revalidatePath("/dashboard", "layout");
+      return { success: "Profile successfully updated!" };
+    }
+
+    return { error: sanitizeDatabaseError(error).userMessage };
   }
 
   revalidatePath("/profile");

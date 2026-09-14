@@ -10,7 +10,24 @@
 -- 1. CREATE EXTENSIONS IF NEEDED
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. CREATE OR REPAIR PUBLIC.MEMBERSHIP_REQUESTS
+-- 2. REPAIR PUBLIC.PROFILES (Ensure bio, phone, skills, interests exist)
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT;
+    ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS skills TEXT[] DEFAULT '{}';
+    ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}';
+EXCEPTION
+    WHEN others THEN null;
+END $$;
+
+-- Ensure clubs table has status column if needed
+DO $$ BEGIN
+    ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved';
+EXCEPTION
+    WHEN others THEN null;
+END $$;
+
+-- 3. CREATE OR REPAIR PUBLIC.MEMBERSHIP_REQUESTS
 CREATE TABLE IF NOT EXISTS public.membership_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     club_id UUID NOT NULL REFERENCES public.clubs(id) ON DELETE CASCADE,

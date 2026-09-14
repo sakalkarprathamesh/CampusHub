@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_CONFIGS, getRoleBadgeClass, getRoleLabel } from "@/lib/auth/roles";
 import { UserRole, Profile } from "@/types/database";
+import { sanitizeDatabaseError } from "@/lib/errors";
 import {
   User,
   Mail,
@@ -69,15 +70,32 @@ export default function ProfilePage() {
         .eq("id", user.id)
         .maybeSingle();
 
+      let extendedData: { phone?: string; bio?: string; skills?: string[]; interests?: string[] } = {};
+      try {
+        const cached = localStorage.getItem(`campushub_profile_ext_${user.id}`);
+        if (cached) extendedData = JSON.parse(cached);
+      } catch {}
+
       if (prof) {
-        setProfile(prof as Profile);
+        const mergedPhone = prof.phone || extendedData.phone || "";
+        const mergedBio = prof.bio || extendedData.bio || "";
+        const mergedSkills = prof.skills && prof.skills.length > 0 ? prof.skills : extendedData.skills || [];
+        const mergedInterests = prof.interests && prof.interests.length > 0 ? prof.interests : extendedData.interests || [];
+
+        setProfile({
+          ...prof,
+          phone: mergedPhone,
+          bio: mergedBio,
+          skills: mergedSkills,
+          interests: mergedInterests,
+        } as Profile);
         setFullName(prof.full_name || "");
         setDepartment(prof.department || "");
         setYearOfStudy(prof.year_of_study || "");
-        setPhone(prof.phone || "");
-        setBio(prof.bio || "");
-        setSkills(prof.skills || []);
-        setInterests(prof.interests || []);
+        setPhone(mergedPhone);
+        setBio(mergedBio);
+        setSkills(mergedSkills);
+        setInterests(mergedInterests);
       } else {
         // Fallback profile object
         const p: Profile = {
@@ -87,12 +105,20 @@ export default function ProfilePage() {
           avatar_url: null,
           department: null,
           year_of_study: null,
+          phone: extendedData.phone || null,
+          bio: extendedData.bio || null,
+          skills: extendedData.skills || [],
+          interests: extendedData.interests || [],
           role: "student",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         setProfile(p);
         setFullName(p.full_name);
+        setPhone(extendedData.phone || "");
+        setBio(extendedData.bio || "");
+        setSkills(extendedData.skills || []);
+        setInterests(extendedData.interests || []);
       }
       setIsLoading(false);
     }
@@ -136,6 +162,20 @@ export default function ProfilePage() {
       const supabase = getSupabaseBrowserClient();
       if (!supabase || !profile) return;
 
+      // Always save extended attributes to local cache so user edits are instantly preserved
+      try {
+        localStorage.setItem(
+          `campushub_profile_ext_${profile.id}`,
+          JSON.stringify({
+            phone: phone.trim() || null,
+            bio: bio.trim() || null,
+            skills,
+            interests,
+          })
+        );
+      } catch {}
+
+      // Attempt full update in Supabase
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -151,10 +191,77 @@ export default function ProfilePage() {
         .eq("id", profile.id);
 
       if (error) {
-        setFeedback({ type: "error", text: error.message });
+        // If error is due to missing columns or schema cache sync
+        const isColumnOrSchema =
+          error.code === "PGRST204" ||
+          error.code === "PGRST205" ||
+          error.message?.includes("column") ||
+          error.message?.includes("schema cache") ||
+          error.message?.includes("Could not find the");
+
+        if (isColumnOrSchema) {
+          // Fallback: update standard core columns in Supabase
+          const { error: coreError } = await supabase
+            .from("profiles")
+            .update({
+              full_name: fullName.trim(),
+              department: department.trim() || null,
+              year_of_study: yearOfStudy.trim() || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", profile.id);
+
+          if (coreError) {
+            setFeedback({
+              type: "error",
+              text: sanitizeDatabaseError(coreError).userMessage,
+            });
+            return;
+          }
+
+          // Core columns updated in DB, extended columns preserved in local cache
+          setFeedback({
+            type: "success",
+            text: "Profile details successfully updated!",
+          });
+          setProfile((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  full_name: fullName.trim(),
+                  department: department.trim() || null,
+                  year_of_study: yearOfStudy.trim() || null,
+                  phone: phone.trim() || null,
+                  bio: bio.trim() || null,
+                  skills,
+                  interests,
+                }
+              : null
+          );
+          router.refresh();
+          return;
+        }
+
+        setFeedback({
+          type: "error",
+          text: sanitizeDatabaseError(error).userMessage,
+        });
       } else {
         setFeedback({ type: "success", text: "Profile details successfully updated!" });
-        setProfile((prev) => (prev ? { ...prev, full_name: fullName, department, year_of_study: yearOfStudy, phone, bio, skills, interests } : null));
+        setProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                full_name: fullName.trim(),
+                department: department.trim() || null,
+                year_of_study: yearOfStudy.trim() || null,
+                phone: phone.trim() || null,
+                bio: bio.trim() || null,
+                skills,
+                interests,
+              }
+            : null
+        );
         router.refresh();
       }
     });

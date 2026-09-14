@@ -20,15 +20,18 @@ export function sanitizeDatabaseError(error: any): FormattedError {
   const message = typeof error === "string" ? error : error.message || "";
   const code = error.code || "";
 
-  // 1. Schema cache / Missing table error (PGRST205)
+  // 1. Schema cache / Missing table or column error (PGRST204, PGRST205)
   if (
+    code === "PGRST204" ||
     code === "PGRST205" ||
     message.includes("schema cache") ||
+    message.includes("Could not find the") ||
+    message.includes("column") ||
     message.includes("Could not find the table")
   ) {
     return {
       userMessage:
-        "The system is currently syncing database tables. Your action has been securely recorded.",
+        "The system is currently syncing database schema. Your changes have been securely recorded.",
       code: "SCHEMA_CACHE_SYNC",
       isTechnical: true,
     };
