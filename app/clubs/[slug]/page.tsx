@@ -14,6 +14,8 @@ import { LeadershipCard } from "@/components/clubs/LeadershipCard";
 import { TeamCard } from "@/components/clubs/TeamCard";
 import { EventCard } from "@/components/events/EventCard";
 import { getCategoryBadgeColor } from "@/lib/utils";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import JoinClubButton from "@/components/clubs/JoinClubButton";
 import {
   Mail,
   Phone,
@@ -54,6 +56,12 @@ export default async function ClubDetailPage({ params }: ClubPageProps) {
   if (!club) {
     notFound();
   }
+
+  const { user, memberships, pendingRequests } = await getCurrentProfile();
+  const isMember = memberships.some((m) => m.club_id === club.id && m.status === "active");
+  const memberRole = memberships.find((m) => m.club_id === club.id)?.role || null;
+  const existingRequest = pendingRequests.find((r) => r.club_id === club.id) || null;
+
 
   const badgeColors = getCategoryBadgeColor(club.category);
   const now = new Date();
@@ -342,64 +350,30 @@ export default async function ClubDetailPage({ params }: ClubPageProps) {
               </div>
             </div>
 
-            {/* FUTURE ACTIONS (Clearly Labeled "Coming Soon") */}
-            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white p-6 shadow-sm space-y-4">
+            {/* DYNAMIC JOIN CLUB & MEMBERSHIP SECTION */}
+            <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900">
-                  Student Member Actions
+                  Membership & Join Status
                 </h3>
-                <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
-                  Phase 2
+                <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                  Official Onboarding
                 </span>
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed">
-                Direct member onboarding, team applications, and verified messaging will activate once student SSO launches.
+                Connect with club leadership, participate in student project tracks, and become an official member of this campus organization.
               </p>
 
-              <div className="space-y-2.5 pt-1">
-                {/* Join Club Action */}
-                <button
-                  disabled
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
-                >
-                  <span className="flex items-center gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    <span>Join Club as General Member</span>
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
-                    Coming Soon
-                  </span>
-                </button>
-
-                {/* Apply for Team */}
-                <button
-                  disabled
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
-                >
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    <span>Apply for Team Lead / Core</span>
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
-                    Coming Soon
-                  </span>
-                </button>
-
-                {/* Contact President */}
-                <button
-                  disabled
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed"
-                >
-                  <span className="flex items-center gap-2">
-                    <Send className="h-4 w-4" />
-                    <span>Direct In-App Message President</span>
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">
-                    Coming Soon
-                  </span>
-                </button>
-              </div>
+              <JoinClubButton
+                clubId={club.id}
+                clubName={club.name}
+                isLoggedIn={Boolean(user)}
+                isMember={isMember}
+                memberRole={memberRole}
+                initialPendingRequestId={existingRequest?.id}
+                initialStatus={existingRequest?.status}
+              />
             </div>
           </div>
         </div>

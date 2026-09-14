@@ -1,6 +1,7 @@
-export type UserRole = 'student' | 'club_lead' | 'faculty_coordinator' | 'admin';
+export type UserRole = 'student' | 'club_member' | 'club_lead' | 'faculty_coordinator' | 'admin';
 export type MembershipRole = 'president' | 'vice_president' | 'secretary' | 'treasurer' | 'core_member' | 'member';
 export type MembershipStatus = 'active' | 'inactive' | 'pending' | 'alumni';
+export type MembershipRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type EventStatus = 'draft' | 'submitted' | 'approved' | 'published' | 'completed' | 'cancelled';
 
 export interface Profile {
@@ -10,6 +11,10 @@ export interface Profile {
   avatar_url: string | null;
   department: string | null;
   year_of_study: string | null;
+  phone?: string | null;
+  bio?: string | null;
+  skills?: string[] | null;
+  interests?: string[] | null;
   role: UserRole;
   created_at: string;
   updated_at: string;
@@ -134,3 +139,22 @@ export interface PlatformStatistics {
   totalTeams: number;
   totalMembers: number;
 }
+
+export interface MembershipRequest {
+  id: string;
+  club_id: string;
+  user_id: string;
+  status: MembershipRequestStatus;
+  message: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MembershipRequestWithDetails extends MembershipRequest {
+  club?: Club;
+  user?: Profile;
+  reviewer?: Profile | null;
+}
+

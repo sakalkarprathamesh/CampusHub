@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 function getCleanSupabaseConfig() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,6 +40,7 @@ function getCleanSupabaseConfig() {
 export const supabaseConfig = getCleanSupabaseConfig();
 export const isSupabaseConfigured = supabaseConfig.isConfigured;
 
+// Unauthenticated client for public seed/static data queries
 export function getSupabaseServerClient() {
   if (!supabaseConfig.isConfigured || !supabaseConfig.url || !supabaseConfig.key) {
     return null;
@@ -50,17 +52,51 @@ export function getSupabaseServerClient() {
         return [];
       },
       setAll() {
-        // No-op in Phase 1 (no authentication session cookies yet)
+        // No-op for unauthenticated public reads
       },
     },
     global: {
       fetch: (input, init) => {
         return fetch(input, {
           ...init,
-          // Safe 8-second timeout to prevent SSR hanging on network issues
           signal: init?.signal || AbortSignal.timeout(8000),
         });
       },
     },
   });
 }
+
+// Authenticated client using request cookies for Server Components and Server Actions
+export async function createSupabaseServerClient() {
+  if (!supabaseConfig.isConfigured || !supabaseConfig.url || !supabaseConfig.key) {
+    return null;
+  }
+
+  const cookieStore = await cookies();
+
+  return createServerClient(supabaseConfig.url, supabaseConfig.key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Can be safely ignored if middleware refreshes user sessions
+        }
+      },
+    },
+    global: {
+      fetch: (input, init) => {
+        return fetch(input, {
+          ...init,
+          signal: init?.signal || AbortSignal.timeout(8000),
+        });
+      },
+    },
+  });
+}
+
