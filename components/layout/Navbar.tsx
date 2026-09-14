@@ -21,6 +21,7 @@ import {
   Shield,
   Award,
   GraduationCap,
+  Eye,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getRoleBadgeClass, getRoleLabel, getDashboardPathForRole } from "@/lib/auth/roles";
@@ -270,6 +271,17 @@ export function Navbar() {
                           </span>
                         )}
                       </Link>
+
+                      {process.env.NEXT_PUBLIC_ENABLE_ROLE_PREVIEW === "true" && profile?.role === "admin" && (
+                        <Link
+                          href="/role-preview"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-blue-700 bg-blue-50/50 hover:bg-blue-50 font-semibold"
+                        >
+                          <Eye className="w-4 h-4 text-blue-600" />
+                          <span>Role Preview Center</span>
+                        </Link>
+                      )}
                     </div>
 
                     <div className="border-t border-slate-100 pt-1">
@@ -390,6 +402,16 @@ export function Navbar() {
                 <User className="w-4 h-4" />
                 <span>My Profile</span>
               </Link>
+              {process.env.NEXT_PUBLIC_ENABLE_ROLE_PREVIEW === "true" && profile?.role === "admin" && (
+                <Link
+                  href="/role-preview"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50/60 rounded-xl"
+                >
+                  <Eye className="w-4 h-4 text-blue-600" />
+                  <span>Role Preview Center</span>
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleSignOut}

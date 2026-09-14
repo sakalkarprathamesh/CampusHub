@@ -41,6 +41,13 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Role Preview feature flag enforcement: disabled when false
+  if (pathname.startsWith("/role-preview") && process.env.NEXT_PUBLIC_ENABLE_ROLE_PREVIEW !== "true") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/";
+    return NextResponse.redirect(redirectUrl);
+  }
+
   // If user is trying to access auth login/register while already logged in
   if (user && (pathname === "/login" || pathname === "/register")) {
     const redirectUrl = request.nextUrl.clone();
