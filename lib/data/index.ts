@@ -66,7 +66,15 @@ const ALL_8_TABLES = [
   "notifications",
 ] as const;
 
+let cachedDbStatus: { data: DatabaseStatus; timestamp: number } | null = null;
+const CACHE_TTL_MS = 10000; // 10 seconds cache to prevent repeated blocking on navigation
+
 export async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  const now = Date.now();
+  if (cachedDbStatus && now - cachedDbStatus.timestamp < CACHE_TTL_MS) {
+    return cachedDbStatus.data;
+  }
+
   const urlExists = supabaseConfig.urlExists;
   const keyExists = supabaseConfig.keyExists;
   const hostname = supabaseConfig.hostname;
@@ -84,7 +92,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       );
     }
 
-    return {
+    const res: DatabaseStatus = {
       status: "prototype",
       label: "Prototype Mode",
       message:
@@ -109,6 +117,8 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
         notifications: SEED_NOTIFICATIONS.length,
       },
     };
+    cachedDbStatus = { data: res, timestamp: now };
+    return res;
   }
 
   // Safe diagnostic log (never prints key)
@@ -123,7 +133,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
     );
   }
 
-  // Case 2: Reachability check with fast timeout (4 seconds)
+  // Case 2: Reachability check with fast timeout (2 seconds)
   let isReachable = false;
   try {
     const reachCheck = await fetch(`${supabaseConfig.url}/rest/v1/`, {
@@ -131,7 +141,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       headers: {
         apikey: supabaseConfig.key!,
       },
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(2000),
     });
     // Any HTTP status code received (200, 401, 404, etc.) proves host is reached
     isReachable = reachCheck.status > 0;
@@ -146,7 +156,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       );
     }
 
-    return {
+    const errRes: DatabaseStatus = {
       status: "error",
       label: "Database Error",
       message:
@@ -173,7 +183,10 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
         notifications: SEED_NOTIFICATIONS.length,
       },
     };
+    cachedDbStatus = { data: errRes, timestamp: now };
+    return errRes;
   }
+
 
   // Case 3: URL is reachable — test each of the 8 tables individually
   const supabase = getSupabaseServerClient();
